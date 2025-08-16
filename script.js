@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
             el: null, x: 0, y: 0,
             vx: 0, vy: 0,
             width: 40, height: 40,
-            lastDirection: 1,
+            lastDirection: -1, // Start facing right (flipped)
         };
         state.platforms = [];
         state.thorns = [];
@@ -71,12 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
         generateLevel(levelConfig.platforms, levelConfig.thorns, levelConfig.flowers);
         
         const worldRect = world.getBoundingClientRect();
-        // Spawn player higher up, safely away from the bottom edge
         state.player.x = worldRect.width / 2;
         state.player.y = worldRect.height - 200;
         state.player.el = createGameObject('player', '🐝', state.player.x, state.player.y);
 
-        // --- FIX: Create a guaranteed safe starting platform ---
         const startPlatform = {
             x: state.player.x - 20,
             y: state.player.y + 100,
@@ -86,10 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
         state.platforms.push(startPlatform);
 
-        // --- FIX: Immediately center the camera on the player at the start ---
         const gameRect = gameArea.getBoundingClientRect();
         state.cameraY = state.player.y - (gameRect.height / 2);
-        updateCamera(); // Force one immediate camera update
+        updateCamera();
 
         updateHUD();
         
@@ -117,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < platformCount; i++) {
             const platform = {
                 x: Math.random() * (worldRect.width - 80),
-                y: Math.random() * (worldRect.height - 250), // Avoid spawning near very bottom
+                y: Math.random() * (worldRect.height - 250),
                 width: 80, height: 20,
                 hasFlower: false,
             };
@@ -127,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         while(flowerPlaced < flowerCount && state.platforms.length > 0) {
             const platform = state.platforms[Math.floor(Math.random() * state.platforms.length)];
-            if (!platform.hasFlower && !platform.isStartPlatform) { // Don't put flower on start platform
+            if (!platform.hasFlower && !platform.isStartPlatform) {
                 platform.hasFlower = true;
                 platform.flowerEl = createGameObject('flower', '🌼', platform.x + 20, platform.y - 30);
                 flowerPlaced++;
@@ -140,9 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 y: Math.random() * (worldRect.height - 250),
                 width: 40, height: 40,
             };
-            // Avoid spawning thorns too close to the player's start position
             if (Math.abs(thorn.x - state.player.x) < 150 && Math.abs(thorn.y - state.player.y) < 150) {
-                continue; // Skip this thorn and try again
+                continue;
             }
             thorn.el = createGameObject('thorn', '🌵', thorn.x, thorn.y);
             state.thorns.push(thorn);
@@ -162,15 +158,18 @@ document.addEventListener('DOMContentLoaded', () => {
         state.gameLoopId = requestAnimationFrame(gameLoop);
     }
 
+    // --- THIS IS THE CORRECTED FUNCTION ---
     function handleInput() {
         state.player.vx = 0;
         if (keys.ArrowLeft || keys.a) {
             state.player.vx = -gameConstants.PLAYER_SPEED;
-            state.player.lastDirection = -1;
+            // To face LEFT (the default emoji direction), we need a scale of 1.
+            state.player.lastDirection = 1; 
         }
         if (keys.ArrowRight || keys.d) {
             state.player.vx = gameConstants.PLAYER_SPEED;
-            state.player.lastDirection = 1;
+            // To face RIGHT, we need to FLIP the emoji, so we use a scale of -1.
+            state.player.lastDirection = -1;
         }
         if (keys.ArrowUp || keys.w || keys[' ']) {
             state.player.vy -= gameConstants.THRUST;
@@ -203,22 +202,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const gameRect = gameArea.getBoundingClientRect();
         const worldRect = world.getBoundingClientRect();
 
-        // --- FIX: Logic to always center camera on player ---
         let targetCameraY = state.player.y - (gameRect.height / 2);
 
-        // Clamp camera to world boundaries
         const maxCameraY = worldRect.height - gameRect.height;
-        if (targetCameraY > maxCameraY) {
-            targetCameraY = maxCameraY;
-        }
-        if (targetCameraY < 0) {
-            targetCameraY = 0;
-        }
+        if (targetCameraY > maxCameraY) targetCameraY = maxCameraY;
+        if (targetCameraY < 0) targetCameraY = 0;
         
         state.cameraY = targetCameraY;
         gameArea.scrollTop = state.cameraY;
     }
-
 
     function handleCollisions() {
         const p = state.player;
@@ -325,6 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function drawPlayer() {
         if (!state.player.el) return;
+        // This logic is now correct thanks to the fix in handleInput
         state.player.el.style.transform = `translate(${state.player.x}px, ${state.player.y}px) scaleX(${state.player.lastDirection})`;
     }
     

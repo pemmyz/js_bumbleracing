@@ -45,10 +45,11 @@ document.addEventListener('DOMContentLoaded', () => {
             el: null, x: 0, y: 0,
             vx: 0, vy: 0,
             width: 40, height: 40,
-            lastDirection: -1, // Start facing right (flipped)
+            lastDirection: -1,
         };
         state.platforms = [];
         state.thorns = [];
+        state.flowers = []; // NEW: Flowers are now their own list of objects
         state.flowersToCollect = 0;
         state.timeLeft = gameConstants.LEVEL_TIME;
         state.levelInProgress = false;
@@ -79,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
             x: state.player.x - 20,
             y: state.player.y + 100,
             width: 80, height: 20,
-            hasFlower: false,
+            isStartPlatform: true, // Mark this platform
         };
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
         state.platforms.push(startPlatform);
@@ -110,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function generateLevel(platformCount, thornCount, flowerCount) {
         const worldRect = world.getBoundingClientRect();
         let flowerPlaced = 0;
+        let platformsForFlowers = [];
 
         for (let i = 0; i < platformCount; i++) {
             const platform = {
@@ -120,15 +122,28 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             platform.el = createGameObject('platform', '🌿', platform.x, platform.y);
             state.platforms.push(platform);
+            platformsForFlowers.push(platform);
         }
         
-        while(flowerPlaced < flowerCount && state.platforms.length > 0) {
-            const platform = state.platforms[Math.floor(Math.random() * state.platforms.length)];
-            if (!platform.hasFlower && !platform.isStartPlatform) {
-                platform.hasFlower = true;
-                platform.flowerEl = createGameObject('flower', '🌼', platform.x + 20, platform.y - 30);
-                flowerPlaced++;
-            }
+        // --- REFACTORED: Create flower objects directly ---
+        while(flowerPlaced < flowerCount && platformsForFlowers.length > 0) {
+            const platformIndex = Math.floor(Math.random() * platformsForFlowers.length);
+            const platform = platformsForFlowers[platformIndex];
+            
+            const flowerX = platform.x + 20;
+            const flowerY = platform.y - 30;
+            const flowerEl = createGameObject('flower', '🌼', flowerX, flowerY);
+
+            state.flowers.push({
+                el: flowerEl,
+                x: flowerX,
+                y: flowerY,
+                width: 35,
+                height: 35
+            });
+            
+            platformsForFlowers.splice(platformIndex, 1); // Remove platform from consideration
+            flowerPlaced++;
         }
         
         for (let i = 0; i < thornCount; i++) {
@@ -158,17 +173,14 @@ document.addEventListener('DOMContentLoaded', () => {
         state.gameLoopId = requestAnimationFrame(gameLoop);
     }
 
-    // --- THIS IS THE CORRECTED FUNCTION ---
     function handleInput() {
         state.player.vx = 0;
         if (keys.ArrowLeft || keys.a) {
             state.player.vx = -gameConstants.PLAYER_SPEED;
-            // To face LEFT (the default emoji direction), we need a scale of 1.
-            state.player.lastDirection = 1; 
+            state.player.lastDirection = 1;
         }
         if (keys.ArrowRight || keys.d) {
             state.player.vx = gameConstants.PLAYER_SPEED;
-            // To face RIGHT, we need to FLIP the emoji, so we use a scale of -1.
             state.player.lastDirection = -1;
         }
         if (keys.ArrowUp || keys.w || keys[' ']) {
@@ -178,68 +190,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updatePlayer() {
         state.player.vy += gameConstants.GRAVITY;
-        if (state.player.vy > gameConstants.MAX_FALL_SPEED) {
-            state.player.vy = gameConstants.MAX_FALL_SPEED;
-        }
-
+        if (state.player.vy > gameConstants.MAX_FALL_SPEED) state.player.vy = gameConstants.MAX_FALL_SPEED;
         state.player.x += state.player.vx;
         state.player.y += state.player.vy;
 
         const worldRect = world.getBoundingClientRect();
         if (state.player.x < 0) state.player.x = 0;
         if (state.player.x + state.player.width > worldRect.width) state.player.x = worldRect.width - state.player.width;
-        
-        if (state.player.y < 0) {
-            state.player.y = 0;
-            state.player.vy = 0;
-        }
-        if (state.player.y + state.player.height > worldRect.height) {
-            handleDeath();
-        }
+        if (state.player.y < 0) { state.player.y = 0; state.player.vy = 0; }
+        if (state.player.y + state.player.height > worldRect.height) handleDeath();
     }
     
     function updateCamera() {
         const gameRect = gameArea.getBoundingClientRect();
         const worldRect = world.getBoundingClientRect();
-
         let targetCameraY = state.player.y - (gameRect.height / 2);
-
         const maxCameraY = worldRect.height - gameRect.height;
         if (targetCameraY > maxCameraY) targetCameraY = maxCameraY;
         if (targetCameraY < 0) targetCameraY = 0;
-        
         state.cameraY = targetCameraY;
         gameArea.scrollTop = state.cameraY;
     }
 
+    // --- REFACTORED: Collision logic is now separated ---
     function handleCollisions() {
         const p = state.player;
         
+        // 1. Thorn collisions (highest priority)
         for (const thorn of state.thorns) {
             if (isColliding(p, thorn)) {
                 handleDeath();
-                return;
+                return; // Stop processing collisions if dead
             }
         }
         
+        // 2. Flower collisions
+        // Loop backwards because we are removing items from the array
+        for (let i = state.flowers.length - 1; i >= 0; i--) {
+            const flower = state.flowers[i];
+            if (isColliding(p, flower)) {
+                collectFlower(flower, i);
+            }
+        }
+        
+        // 3. Platform collisions (for landing/bouncing)
         for (const platform of state.platforms) {
             if (isColliding(p, platform)) {
                 const prevPlayerBottom = (p.y - p.vy) + p.height;
                 if (p.vy > 0 && prevPlayerBottom <= platform.y + 5) {
                     p.y = platform.y - p.height;
                     p.vy = gameConstants.BOUNCE_VELOCITY;
-
-                    if (platform.hasFlower) {
-                        collectFlower(platform);
-                    }
                 }
             }
         }
     }
     
-    function collectFlower(platform) {
-        platform.hasFlower = false;
-        platform.flowerEl.remove();
+    // --- REFACTORED: This function now handles a flower object directly ---
+    function collectFlower(flower, index) {
+        flower.el.remove(); // Remove from the screen
+        state.flowers.splice(index, 1); // Remove from the collision list
+
         state.score += 100;
         state.flowersToCollect--;
         updateHUD();
@@ -262,19 +272,14 @@ document.addEventListener('DOMContentLoaded', () => {
         state.levelInProgress = false;
         state.lives--;
         updateHUD();
-
-        if (state.lives <= 0) {
-            endGame();
-        } else {
-            showLevelMessage("Try Again", 2000, startLevel);
-        }
+        if (state.lives <= 0) endGame();
+        else showLevelMessage("Try Again", 2000, startLevel);
     }
 
     function endGame() {
         state.gameOver = true;
         clearInterval(state.timerId);
         cancelAnimationFrame(state.gameLoopId);
-        
         messageScreen.querySelector('h1').textContent = 'Game Over';
         const p = messageScreen.querySelectorAll('.instructions');
         p[0].textContent = `Final Score: ${state.score}`;
@@ -289,9 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.levelInProgress) {
             state.timeLeft--;
             updateHUD();
-            if (state.timeLeft <= 0) {
-                handleDeath();
-            }
+            if (state.timeLeft <= 0) handleDeath();
         }
     }
 
@@ -300,7 +303,6 @@ document.addEventListener('DOMContentLoaded', () => {
         levelEl.textContent = `LEVEL: ${state.level}`;
         flowersLeftEl.textContent = `🌼: ${state.flowersToCollect}`;
         livesEl.textContent = `BEE: ${'🐝'.repeat(Math.max(0, state.lives))}`;
-
         const minutes = Math.floor(state.timeLeft / 60);
         const seconds = state.timeLeft % 60;
         timerEl.textContent = `⏱️ ${minutes}:${String(seconds).padStart(2, '0')}`;
@@ -317,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function drawPlayer() {
         if (!state.player.el) return;
-        // This logic is now correct thanks to the fix in handleInput
         state.player.el.style.transform = `translate(${state.player.x}px, ${state.player.y}px) scaleX(${state.player.lastDirection})`;
     }
     

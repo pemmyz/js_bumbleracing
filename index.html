@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Let's Get Ready to Bumble</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="screen">
+        <div id="game-area">
+            <!-- Game Over / Start Screen -->
+            <div id="message-screen">
+                <h1>Let's Get Ready to Bumble</h1>
+                <p class="instructions">Use Arrow Keys or A/D to move Left/Right.</p>
+                <p class="instructions">Hold Up Arrow, W, or Space to Thrust upwards.</p>
+                <p class="instructions">Collect all 🌼 before time runs out!</p>
+                <p class="instructions">Avoid the thorny 🌵!</p>
+                <button id="start-button">Start Game</button>
+            </div>
+
+            <!-- In-Game Message Overlay -->
+            <div id="level-message-screen" class="hidden"></div>
+
+            <!-- HUD -->
+            <div id="hud">
+                <div class="hud-item" id="score">SCORE: 0</div>
+                <div class="hud-item" id="level">LEVEL: 1</div>
+                <div class="hud-item" id="flowers-left">🌼: 5</div>
+                <div class="hud-item" id="timer">⏱️ 1:30</div>
+                <div class="hud-item" id="lives">BEE: 🐝🐝🐝</div>
+            </div>
+
+            <!-- Game Objects will be added here by JS -->
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

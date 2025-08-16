@@ -14,62 +14,41 @@ document.addEventListener('DOMContentLoaded', () => {
     let state = {};
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
     
-    // --- NEW: The Cloud Class, adapted for DOM elements ---
+    // --- MODIFIED: The Cloud Class constructor now accepts an X coordinate ---
     class Cloud {
-        constructor(y, isThunder = false) {
+        constructor(x, y, isThunder = false) {
             this.isThunder = isThunder;
-            const worldRect = world.getBoundingClientRect();
-            
-            // Start off-screen to the right
-            this.x = worldRect.width + Math.random() * 200;
+            this.x = x;
             this.y = y;
-            
-            // Create the main container div for the cloud
             this.el = document.createElement('div');
             this.el.className = 'cloud-container';
-            world.insertBefore(this.el, world.firstChild); // Insert at the back
-
-            // Procedural generation of the cloud shape using div "puffs"
+            world.insertBefore(this.el, world.firstChild);
             const numPuffs = 10 + Math.random() * 5;
             let minX = Infinity, maxX = -Infinity;
-
             for (let i = 0; i < numPuffs; i++) {
                 const puff = document.createElement('div');
                 puff.className = `cloud-puff ${this.isThunder ? 'thunder' : 'regular'}`;
-                
                 const offsetX = (Math.random() - 0.5) * 150;
                 const offsetY = (Math.random() - 0.5) * 50;
                 const radius = 20 + Math.random() * 20;
-
                 puff.style.width = `${radius * 2}px`;
                 puff.style.height = `${radius * 2}px`;
                 puff.style.left = `${offsetX}px`;
                 puff.style.top = `${offsetY}px`;
-                
                 this.el.appendChild(puff);
-
                 minX = Math.min(minX, offsetX - radius);
                 maxX = Math.max(maxX, offsetX + radius);
             }
-            
             this.width = maxX - minX;
-            // Apply initial position
             this.el.style.transform = `translate(${this.x}px, ${this.y}px)`;
         }
-
-        // Update moves the cloud horizontally for the parallax effect
         update() {
             const speedMultiplier = this.isThunder ? 0.6 : 0.4;
             this.x -= speedMultiplier;
             this.el.style.transform = `translate(${this.x}px, ${this.y}px)`;
         }
-
-        // Method to remove the cloud's element from the DOM
-        destroy() {
-            this.el.remove();
-        }
+        destroy() { this.el.remove(); }
     }
-
 
     function resetGame() {
         state = { level: 1, score: 0, lives: 3, gameLoopId: null, timerId: null, gameOver: false, };
@@ -77,15 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetLevelState() {
         state.player = { el: null, x: 0, y: 0, vx: 0, vy: 0, width: 40, height: 40, lastDirection: -1, };
-        state.platforms = [];
-        state.thorns = [];
-        state.flowers = [];
-        state.clouds = []; // ADDED: list for cloud objects
-        state.frame = 0;   // ADDED: frame counter for generation
-        state.flowersToCollect = 0;
-        state.timeLeft = gameConstants.LEVEL_TIME;
-        state.levelInProgress = false;
-        state.cameraY = 0;
+        state.platforms = []; state.thorns = []; state.flowers = []; state.clouds = [];
+        state.frame = 0; state.flowersToCollect = 0; state.timeLeft = gameConstants.LEVEL_TIME;
+        state.levelInProgress = false; state.cameraY = 0;
     }
 
     function startGame() {
@@ -98,24 +71,22 @@ document.addEventListener('DOMContentLoaded', () => {
         resetLevelState();
         clearDynamicElements();
 
+        prepopulateClouds(15); // --- ADDED: Instantly creates 15 clouds across the sky ---
+
         const levelConfig = getLevelConfig(state.level);
         state.flowersToCollect = levelConfig.flowers;
         generateLevel(levelConfig.platforms, levelConfig.thorns, levelConfig.flowers);
-        
         const worldRect = world.getBoundingClientRect();
         state.player.x = worldRect.width / 2;
         state.player.y = worldRect.height - 200;
         state.player.el = createGameObject('player', '🐝', state.player.x, state.player.y);
-
         const startPlatform = { x: state.player.x - 20, y: state.player.y + 100, width: 80, height: 20, isStartPlatform: true, };
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
         state.platforms.push(startPlatform);
-
         const gameRect = gameArea.getBoundingClientRect();
         state.cameraY = state.player.y - (gameRect.height / 2);
         updateCamera();
         updateHUD();
-        
         showLevelMessage(`Level ${state.level}`, 1500, () => {
             state.levelInProgress = true;
             if (state.timerId) clearInterval(state.timerId);
@@ -123,6 +94,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if(state.gameLoopId) cancelAnimationFrame(state.gameLoopId);
             gameLoop();
         });
+    }
+    
+    // --- NEW: This function fills the sky with clouds at the start of a level ---
+    function prepopulateClouds(count) {
+        const worldRect = world.getBoundingClientRect();
+        for (let i = 0; i < count; i++) {
+            const randomX = Math.random() * worldRect.width;
+            const randomY = Math.random() * worldRect.height;
+            const isThunder = Math.random() < 0.3; // 30% chance
+            state.clouds.push(new Cloud(randomX, randomY, isThunder));
+        }
     }
 
     function getLevelConfig(level) {
@@ -133,14 +115,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const worldRect = world.getBoundingClientRect();
         let flowerPlaced = 0;
         let platformsForFlowers = [];
-
         for (let i = 0; i < platformCount; i++) {
             const platform = { x: Math.random() * (worldRect.width - 80), y: Math.random() * (worldRect.height - 250), width: 80, height: 20, hasFlower: false, };
             platform.el = createGameObject('platform', '🌿', platform.x, platform.y);
             state.platforms.push(platform);
             platformsForFlowers.push(platform);
         }
-        
         while(flowerPlaced < flowerCount && platformsForFlowers.length > 0) {
             const platformIndex = Math.floor(Math.random() * platformsForFlowers.length);
             const platform = platformsForFlowers[platformIndex];
@@ -150,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
             platformsForFlowers.splice(platformIndex, 1);
             flowerPlaced++;
         }
-        
         for (let i = 0; i < thornCount; i++) {
             const thorn = { x: Math.random() * (worldRect.width - 40), y: Math.random() * (worldRect.height - 250), width: 40, height: 40, };
             if (Math.abs(thorn.x - state.player.x) < 150 && Math.abs(thorn.y - state.player.y) < 150) continue;
@@ -159,17 +138,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- NEW Cloud Management Functions ---
     function handleCloudGeneration() {
         state.frame++;
         const worldRect = world.getBoundingClientRect();
-        // Every 150 frames, create a new regular cloud
         if (state.frame % 150 === 0) {
-            state.clouds.push(new Cloud(Math.random() * worldRect.height));
+            // MODIFIED: Pass an off-screen X coordinate to the constructor
+            state.clouds.push(new Cloud(worldRect.width + 100, Math.random() * worldRect.height));
         }
-        // Every 300 frames, create a new thundercloud
         if (state.frame % 300 === 0) {
-            state.clouds.push(new Cloud(Math.random() * worldRect.height, true));
+            // MODIFIED: Pass an off-screen X coordinate to the constructor
+            state.clouds.push(new Cloud(worldRect.width + 200, Math.random() * worldRect.height, true));
         }
     }
 
@@ -177,7 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = state.clouds.length - 1; i >= 0; i--) {
             const cloud = state.clouds[i];
             cloud.update();
-            // Remove clouds that have moved off the left edge of the screen
             if (cloud.x + cloud.width < 0) {
                 cloud.destroy();
                 state.clouds.splice(i, 1);
@@ -187,18 +164,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function gameLoop() {
         if (state.gameOver) return;
-        
-        handleCloudGeneration(); // ADDED
-        updateAndDrawClouds();   // ADDED
-
         if(state.levelInProgress){
+            handleCloudGeneration();
+            updateAndDrawClouds();
             handleInput();
             updatePlayer();
             handleCollisions();
         }
         drawPlayer();
         updateCamera();
-        
         state.gameLoopId = requestAnimationFrame(gameLoop);
     }
 
@@ -245,10 +219,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function collectFlower(flower, index) {
-        flower.el.remove();
-        state.flowers.splice(index, 1);
-        state.score += 100;
-        state.flowersToCollect--;
+        flower.el.remove(); state.flowers.splice(index, 1);
+        state.score += 100; state.flowersToCollect--;
         updateHUD();
         if (state.flowersToCollect <= 0) { nextLevel(); }
     }
@@ -303,11 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
     }
     
-    // MODIFIED: This function now also clears cloud elements
-    function clearDynamicElements() {
-        // This simple approach clears everything, including game objects and clouds, which is what we want.
-        world.innerHTML = '';
-    }
+    function clearDynamicElements() { world.innerHTML = ''; }
 
     function showLevelMessage(text, duration, callback) {
         levelMessageScreen.textContent = text; levelMessageScreen.classList.remove('hidden');

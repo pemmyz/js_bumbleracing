@@ -42,23 +42,33 @@ body {
     z-index: 100;
 }
 
+/* The visible viewport for the game */
 #game-area {
     width: 100%;
     height: 100%;
-    background-color: #87CEEB; /* Sky Blue */
     position: relative;
-    overflow: hidden;
+    overflow: hidden; /* This hides the scrollbar */
     user-select: none;
     image-rendering: pixelated;
+}
+
+/* The container for all game objects, which will be taller than the screen */
+#world {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 300%; /* Making the world 3x taller than the screen */
+    background-color: #87CEEB; /* Sky Blue */
 }
 
 /* Message Screens */
 #message-screen, #level-message-screen {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 1.5em; /* Match screen padding */
+    left: 1.5em;
+    right: 1.5em;
+    bottom: 1.5em;
     background-color: rgba(0, 0, 0, 0.7);
     display: flex;
     flex-direction: column;
@@ -80,42 +90,18 @@ body {
     pointer-events: none;
 }
 
-#message-screen h1 {
-    font-size: 2em;
-    color: #FFD700;
-    margin-bottom: 20px;
-}
+#message-screen h1 { font-size: 2em; color: #FFD700; margin-bottom: 20px; }
+#message-screen .instructions { font-size: 0.8em; line-height: 1.8; }
+#start-button { margin-top: 30px; padding: 15px 30px; font-family: var(--retro-font); font-size: 1.2em; background-color: #4CAF50; color: white; border: 3px solid white; cursor: pointer; box-shadow: 0 5px #999; }
+#start-button:hover { background-color: #45a049; }
+#start-button:active { background-color: #45a049; box-shadow: 0 2px #666; transform: translateY(4px); }
 
-#message-screen .instructions {
-    font-size: 0.8em;
-    line-height: 1.8;
-}
-
-#start-button {
-    margin-top: 30px;
-    padding: 15px 30px;
-    font-family: var(--retro-font);
-    font-size: 1.2em;
-    background-color: #4CAF50;
-    color: white;
-    border: 3px solid white;
-    cursor: pointer;
-    box-shadow: 0 5px #999;
-}
-
-#start-button:hover {
-    background-color: #45a049;
-}
-#start-button:active {
-    background-color: #45a049;
-    box-shadow: 0 2px #666;
-    transform: translateY(4px);
-}
-
-/* HUD */
+/* HUD is now fixed to the screen */
 #hud {
     position: absolute;
-    width: 100%;
+    top: 1.5em; /* Match screen padding */
+    left: 1.5em;
+    right: 1.5em;
     display: flex;
     justify-content: space-between;
     padding: 10px 20px;
@@ -127,28 +113,8 @@ body {
 }
 
 /* Game Objects */
-.game-object {
-    position: absolute;
-    will-change: transform;
-    font-size: 2em;
-}
-
-.player {
-    z-index: 5;
-    font-size: 2.5em;
-}
-
-.platform {
-    font-size: 2.5em;
-    color: #228B22; /* ForestGreen */
-}
-
-.flower {
-    z-index: 1;
-    font-size: 2.2em;
-}
-
-.thorn {
-    font-size: 2.2em;
-    color: #696969; /* DimGray */
-}
+.game-object { position: absolute; will-change: transform; font-size: 2em; }
+.player { z-index: 5; font-size: 2.5em; }
+.platform { font-size: 2.5em; color: #228B22; }
+.flower { z-index: 1; font-size: 2.2em; }
+.thorn { font-size: 2.2em; color: #696969; }

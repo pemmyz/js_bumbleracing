@@ -90,11 +90,34 @@ body {
     pointer-events: none;
 }
 
-#message-screen h1 { font-size: 2em; color: #FFD700; margin-bottom: 20px; }
-#message-screen .instructions { font-size: 0.8em; line-height: 1.8; }
-#start-button { margin-top: 30px; padding: 15px 30px; font-family: var(--retro-font); font-size: 1.2em; background-color: #4CAF50; color: white; border: 3px solid white; cursor: pointer; box-shadow: 0 5px #999; }
-#start-button:hover { background-color: #45a049; }
-#start-button:active { background-color: #45a049; box-shadow: 0 2px #666; transform: translateY(4px); }
+#message-screen h1 { 
+    font-size: 2em; 
+    color: #FFD700; 
+    margin-bottom: 20px; 
+}
+#message-screen .instructions { 
+    font-size: 0.8em; 
+    line-height: 1.8; 
+}
+#start-button { 
+    margin-top: 30px; 
+    padding: 15px 30px; 
+    font-family: var(--retro-font); 
+    font-size: 1.2em; 
+    background-color: #4CAF50; 
+    color: white; 
+    border: 3px solid white; 
+    cursor: pointer; 
+    box-shadow: 0 5px #999; 
+}
+#start-button:hover { 
+    background-color: #45a049; 
+}
+#start-button:active { 
+    background-color: #45a049; 
+    box-shadow: 0 2px #666; 
+    transform: translateY(4px); 
+}
 
 /* HUD is now fixed to the screen */
 #hud {
@@ -113,8 +136,46 @@ body {
 }
 
 /* Game Objects */
-.game-object { position: absolute; will-change: transform; font-size: 2em; }
-.player { z-index: 5; font-size: 2.5em; }
-.platform { font-size: 2.5em; color: #228B22; }
-.flower { z-index: 1; font-size: 2.2em; }
-.thorn { font-size: 2.2em; color: #696969; }
+.game-object { 
+    position: absolute; 
+    will-change: transform; 
+    font-size: 2em; 
+}
+.player { 
+    z-index: 5; 
+    font-size: 2.5em; 
+}
+.platform { 
+    font-size: 2.5em; 
+    color: #228B22; 
+}
+.flower { 
+    z-index: 1; 
+    font-size: 2.2em; 
+}
+.thorn { 
+    font-size: 2.2em; 
+    color: #696969; 
+}
+
+/* Clouds */
+.cloud-container {
+    position: absolute;
+    /* Clouds are part of the background, so no pointer events */
+    pointer-events: none; 
+    /* Optional: A slight blur can make them look softer */
+    filter: blur(1px); 
+}
+
+.cloud-puff {
+    position: absolute;
+    border-radius: 50%;
+}
+
+.cloud-puff.regular {
+    background-color: rgba(255, 255, 255, 0.7);
+}
+
+.cloud-puff.thunder {
+    background-color: rgba(128, 128, 128, 0.7);
+}

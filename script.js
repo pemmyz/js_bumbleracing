@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let state = {};
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
     
-    // --- MODIFIED: The Cloud Class constructor now accepts an X coordinate ---
     class Cloud {
         constructor(x, y, isThunder = false) {
             this.isThunder = isThunder;
@@ -71,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetLevelState();
         clearDynamicElements();
 
-        prepopulateClouds(15); // --- ADDED: Instantly creates 15 clouds across the sky ---
+        prepopulateClouds(15); 
 
         const levelConfig = getLevelConfig(state.level);
         state.flowersToCollect = levelConfig.flowers;
@@ -96,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // --- NEW: This function fills the sky with clouds at the start of a level ---
     function prepopulateClouds(count) {
         const worldRect = world.getBoundingClientRect();
         for (let i = 0; i < count; i++) {
@@ -130,11 +128,41 @@ document.addEventListener('DOMContentLoaded', () => {
             platformsForFlowers.splice(platformIndex, 1);
             flowerPlaced++;
         }
-        for (let i = 0; i < thornCount; i++) {
-            const thorn = { x: Math.random() * (worldRect.width - 40), y: Math.random() * (worldRect.height - 250), width: 40, height: 40, };
-            if (Math.abs(thorn.x - state.player.x) < 150 && Math.abs(thorn.y - state.player.y) < 150) continue;
-            thorn.el = createGameObject('thorn', '🌵', thorn.x, thorn.y);
-            state.thorns.push(thorn);
+        
+        // --- MODIFIED: Thorn Generation Logic ---
+        const thornGroupCount = Math.floor(thornCount / 3);
+        for (let i = 0; i < thornGroupCount; i++) {
+            // 1. Define a central point for the cluster, avoiding screen edges
+            const clusterCenterX = Math.random() * (worldRect.width - 120) + 60;
+            const clusterCenterY = Math.random() * (worldRect.height - 350); // Avoid spawning too low
+
+            // 2. Define player start area to avoid spawning thorns there
+            const playerStartX = worldRect.width / 2;
+            const playerStartY = worldRect.height - 200;
+
+            // 3. If cluster is too close to player start, retry placement
+            if (Math.abs(clusterCenterX - playerStartX) < 200 && Math.abs(clusterCenterY - playerStartY) < 200) {
+                i--; // Decrement i to ensure the correct number of clusters are generated
+                continue;
+            }
+
+            // 4. Create three thorns in a cluster with some random variation
+            const thornPositions = [
+                { x: clusterCenterX, y: clusterCenterY }, // Center thorn
+                { x: clusterCenterX - 25 + (Math.random() * 10 - 5), y: clusterCenterY + 5 + (Math.random() * 10 - 5) }, // Left thorn
+                { x: clusterCenterX + 25 + (Math.random() * 10 - 5), y: clusterCenterY + 5 + (Math.random() * 10 - 5) }  // Right thorn
+            ];
+
+            for (const pos of thornPositions) {
+                const thorn = {
+                    x: pos.x,
+                    y: pos.y,
+                    width: 40,
+                    height: 40,
+                };
+                thorn.el = createGameObject('thorn', '🌵', thorn.x, thorn.y);
+                state.thorns.push(thorn);
+            }
         }
     }
 
@@ -142,11 +170,9 @@ document.addEventListener('DOMContentLoaded', () => {
         state.frame++;
         const worldRect = world.getBoundingClientRect();
         if (state.frame % 150 === 0) {
-            // MODIFIED: Pass an off-screen X coordinate to the constructor
             state.clouds.push(new Cloud(worldRect.width + 100, Math.random() * worldRect.height));
         }
         if (state.frame % 300 === 0) {
-            // MODIFIED: Pass an off-screen X coordinate to the constructor
             state.clouds.push(new Cloud(worldRect.width + 200, Math.random() * worldRect.height, true));
         }
     }

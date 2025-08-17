@@ -1,7 +1,7 @@
 # js_bumbleracing
 
 
-# 🐝 Bee Flower Bee (Co-op)
+# 🐝🌼🐝 Bee Flower Bee (Co-op)
 
 A retro-styled browser game inspired by arcade classics and the bee minigame from **GTA: San Andreas**.  
 Collect all the 🌼 flowers before the timer runs out, bounce off leaves 🌿, and avoid thorny 🌵 obstacles!  

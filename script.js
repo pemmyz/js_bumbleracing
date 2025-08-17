@@ -11,21 +11,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageScreen = document.getElementById('message-screen');
     const levelMessageScreen = document.getElementById('level-message-screen');
     const startButton = document.getElementById('start-button');
+    const helpScreen = document.getElementById('help-screen');
+    const helpButton = document.getElementById('help-button');
+    const closeHelpButton = document.getElementById('close-help-button');
+    const devIndicator = document.getElementById('dev-mode-indicator');
 
-    // --- Game Constants ---
+    // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
-    
-    // --- Game State ---
     let state = {};
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
-
-    // Player control mappings
     const playerControls = [
         { up: ['w', ' '], left: 'a', right: 'd' },
         { up: ['ArrowUp'], left: 'ArrowLeft', right: 'ArrowRight' }
     ];
     
-    // --- Classes ---
+    // --- Cloud Class ---
     class Cloud {
         constructor(x, y, isThunder = false) {
             this.isThunder = isThunder;
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Initialization ---
     function resetGame() {
-        state = { level: 1, totalScore: 0, lives: 3, gameLoopId: null, timerId: null, gameOver: false, };
+        state = { level: 1, totalScore: 0, lives: 3, gameLoopId: null, timerId: null, gameOver: false, isTwoPlayer: false, devMode: false };
     }
 
     function resetLevelState() {
@@ -76,13 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function startGame() {
         resetGame();
         messageScreen.classList.add('hidden');
+        p2ScoreEl.classList.add('hidden'); // Ensure P2 score is hidden at start
         startLevel();
     }
     
     function startLevel() {
         resetLevelState();
         clearDynamicElements();
-
         prepopulateClouds(15); 
 
         const levelConfig = getLevelConfig(state.level);
@@ -91,36 +91,19 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const worldRect = world.getBoundingClientRect();
         const startY = worldRect.height - 200;
-        const startPlatformY = startY + 100;
         
-        // Create two players
-        for (let i = 0; i < 2; i++) {
-            const player = {
-                id: i + 1,
-                el: null,
-                x: worldRect.width / 2 + (i === 0 ? -40 : 40), // Start side-by-side
-                y: startY,
-                vx: 0, vy: 0, width: 40, height: 40,
-                lastDirection: -1,
-                score: state.players[i] ? state.players[i].score : 0, // Persist score on death retry
-                controls: playerControls[i]
-            };
-            player.el = createGameObject(`player player-${player.id}-glow`, '🐝', player.x, player.y);
-            state.players.push(player);
+        // Always create player 1
+        addPlayer(0, startY);
+
+        // If P2 was in the game, bring them back on level retry
+        if (state.isTwoPlayer) {
+            addPlayer(1, startY);
         }
 
-        const startPlatform = { 
-            x: worldRect.width / 2 - 60, 
-            y: startPlatformY, 
-            width: 160, 
-            height: 20, 
-        };
+        const startPlatform = { x: worldRect.width / 2 - 80, y: startY + 100, width: 200, height: 20, };
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
         state.platforms.push(startPlatform);
         
-        const gameRect = gameArea.getBoundingClientRect();
-        state.cameraY = startY - (gameRect.height / 2);
-
         updateCamera();
         updateHUD();
         showLevelMessage(`Level ${state.level}`, 1500, () => {
@@ -132,7 +115,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Level Generation (Unchanged from original, except thorn placement logic) ---
+    function addPlayer(playerIndex, startY) {
+        const worldRect = world.getBoundingClientRect();
+        const player = {
+            id: playerIndex + 1,
+            el: null,
+            x: worldRect.width / 2 + (playerIndex === 0 ? -40 : 40),
+            y: startY,
+            vx: 0, vy: 0, width: 40, height: 40,
+            lastDirection: -1,
+            score: state.players[playerIndex]?.score || 0, // Persist score
+            controls: playerControls[playerIndex]
+        };
+        player.el = createGameObject(`player player-${player.id}-glow`, '🐝', player.x, player.y);
+        state.players[playerIndex] = player;
+    }
+
+    // --- Level Generation & Clouds ---
     function prepopulateClouds(count) {
         const worldRect = world.getBoundingClientRect();
         for (let i = 0; i < count; i++) {
@@ -186,6 +185,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function handleCloudGeneration() {
+        state.frame++;
+        const worldRect = world.getBoundingClientRect();
+        if (state.frame % 150 === 0) {
+            state.clouds.push(new Cloud(worldRect.width + 100, Math.random() * worldRect.height));
+        }
+        if (state.frame % 300 === 0) {
+            state.clouds.push(new Cloud(worldRect.width + 200, Math.random() * worldRect.height, true));
+        }
+    }
+
+    function updateAndDrawClouds() {
+        for (let i = state.clouds.length - 1; i >= 0; i--) {
+            const cloud = state.clouds[i];
+            cloud.update();
+            if (cloud.x + cloud.width < 0) {
+                cloud.destroy();
+                state.clouds.splice(i, 1);
+            }
+        }
+    }
+
     // --- Game Loop ---
     function gameLoop() {
         if (state.gameOver) return;
@@ -203,6 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleInput() {
         state.players.forEach(player => {
+            if (!player) return; // Skip if player doesn't exist yet
             player.vx = 0;
             if (keys[player.controls.left]) { player.vx = -gameConstants.PLAYER_SPEED; player.lastDirection = 1; }
             if (keys[player.controls.right]) { player.vx = gameConstants.PLAYER_SPEED; player.lastDirection = -1; }
@@ -213,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePlayers() {
         const worldRect = world.getBoundingClientRect();
         state.players.forEach(player => {
+            if (!player) return;
             player.vy += gameConstants.GRAVITY;
             if (player.vy > gameConstants.MAX_FALL_SPEED) player.vy = gameConstants.MAX_FALL_SPEED;
             player.x += player.vx;
@@ -229,10 +252,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const gameRect = gameArea.getBoundingClientRect();
         const worldRect = world.getBoundingClientRect();
         
-        // Follow the average Y position of both players
-        const averagePlayerY = (state.players[0].y + state.players[1].y) / 2;
-        let targetCameraY = averagePlayerY - (gameRect.height / 2);
+        // Gracefully handle one or two players for camera tracking
+        const p1_y = state.players[0].y;
+        const p2_y = state.players[1]?.y || p1_y; // Use P1's Y if P2 doesn't exist
+        const averagePlayerY = (p1_y + p2_y) / 2;
 
+        let targetCameraY = averagePlayerY - (gameRect.height / 2);
         const maxCameraY = worldRect.height - gameRect.height;
         if (targetCameraY > maxCameraY) targetCameraY = maxCameraY;
         if (targetCameraY < 0) targetCameraY = 0;
@@ -242,6 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleCollisions() {
         state.players.forEach(p => {
+            if (!p) return;
             for (const thorn of state.thorns) { if (isColliding(p, thorn)) { handleDeath(); return; } }
             for (let i = state.flowers.length - 1; i >= 0; i--) { const flower = state.flowers[i]; if (isColliding(p, flower)) { collectFlower(flower, i, p); } }
             for (const platform of state.platforms) {
@@ -272,6 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleDeath() {
+        if (state.devMode) return; // Dev mode invincibility
         if (!state.levelInProgress) return;
         state.levelInProgress = false; 
         state.lives--;
@@ -279,7 +306,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.lives <= 0) {
             endGame(); 
         } else {
-            // Important: We call startLevel but game state (level, lives, scores) is preserved
             showLevelMessage("Try Again", 2000, startLevel);
         }
     }
@@ -291,7 +317,10 @@ document.addEventListener('DOMContentLoaded', () => {
         messageScreen.querySelector('h1').textContent = 'Game Over';
         const p = messageScreen.querySelectorAll('.instructions');
         p[0].textContent = `Final Score: ${state.totalScore}`;
-        p[1].textContent = `P1: ${state.players[0].score} | P2: ${state.players[1].score}`;
+        p[1].textContent = `P1: ${state.players[0]?.score || 0}`;
+        if (state.isTwoPlayer) {
+            p[1].textContent += ` | P2: ${state.players[1]?.score || 0}`;
+        }
         p[2].textContent = `Reached Level: ${state.level}`;
         p[3].textContent = '';
         startButton.textContent = 'Play Again'; 
@@ -299,13 +328,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateTimer() {
+        if (state.devMode) return; // Dev mode infinite time
         if (state.levelInProgress) { state.timeLeft--; updateHUD(); if (state.timeLeft <= 0) handleDeath(); }
     }
 
     // --- Drawing & UI ---
     function updateHUD() {
-        p1ScoreEl.textContent = `P1: ${state.players.length > 0 ? state.players[0].score : 0}`;
-        p2ScoreEl.textContent = `P2: ${state.players.length > 1 ? state.players[1].score : 0}`;
+        p1ScoreEl.textContent = `P1: ${state.players[0]?.score || 0}`;
+        if (state.isTwoPlayer) {
+            p2ScoreEl.textContent = `P2: ${state.players[1]?.score || 0}`;
+        }
         levelEl.textContent = `LEVEL: ${state.level}`;
         flowersLeftEl.textContent = `🌼: ${state.flowersToCollect}`;
         livesEl.textContent = `LIVES: ${'🐝'.repeat(Math.max(0, state.lives))}`;
@@ -315,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function drawPlayers() {
         state.players.forEach(player => {
-            if (!player.el) return;
+            if (!player || !player.el) return;
             player.el.style.transform = `translate(${player.x}px, ${player.y}px) scaleX(${player.lastDirection})`;
         });
     }
@@ -339,31 +371,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function clearDynamicElements() { world.innerHTML = ''; }
-    
-    function handleCloudGeneration() {
-        state.frame++;
-        const worldRect = world.getBoundingClientRect();
-        if (state.frame % 150 === 0) {
-            state.clouds.push(new Cloud(worldRect.width + 100, Math.random() * worldRect.height));
-        }
-        if (state.frame % 300 === 0) {
-            state.clouds.push(new Cloud(worldRect.width + 200, Math.random() * worldRect.height, true));
-        }
-    }
 
-    function updateAndDrawClouds() {
-        for (let i = state.clouds.length - 1; i >= 0; i--) {
-            const cloud = state.clouds[i];
-            cloud.update();
-            if (cloud.x + cloud.width < 0) {
-                cloud.destroy();
-                state.clouds.splice(i, 1);
-            }
+    // --- Dev Mode ---
+    function toggleDevMode() {
+        state.devMode = !state.devMode;
+        devIndicator.classList.toggle('hidden', !state.devMode);
+        console.log(`Dev mode ${state.devMode ? 'enabled' : 'disabled'}.`);
+        if (state.devMode) {
+            console.log('Commands: [N] Next Level');
         }
     }
 
     // --- Event Listeners ---
-    window.addEventListener('keydown', e => { if (e.key in keys) { e.preventDefault(); keys[e.key] = true; } });
+    window.addEventListener('keydown', e => { 
+        if (e.key in keys) { e.preventDefault(); keys[e.key] = true; }
+
+        // P2 Join-in logic
+        if (e.key === 'ArrowUp' && !state.isTwoPlayer && state.gameLoopId) {
+            e.preventDefault();
+            state.isTwoPlayer = true;
+            addPlayer(1, state.players[0].y); // Add P2 at P1's current height
+            p2ScoreEl.classList.remove('hidden');
+            console.log("Player 2 has joined the game!");
+        }
+
+        // Help Menu toggle (with 'h' or '?')
+        if (e.key.toLowerCase() === 'h' || e.key === '?') {
+            if (messageScreen.classList.contains('hidden')) { // only toggle help if main menu is hidden
+               helpScreen.classList.toggle('hidden');
+            }
+        }
+        
+        // Dev Mode toggle (Ctrl+Shift+D)
+        if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+            toggleDevMode();
+        }
+
+        // Dev Mode commands
+        if (state.devMode && state.levelInProgress) {
+            if (e.key.toLowerCase() === 'n') {
+                console.log("DEV: Skipping to next level.");
+                nextLevel();
+            }
+        }
+    });
+
     window.addEventListener('keyup', e => { if (e.key in keys) { e.preventDefault(); keys[e.key] = false; } });
+    
     startButton.addEventListener('click', startGame);
+    helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
+    closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
 });

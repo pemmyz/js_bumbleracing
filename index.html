@@ -14,11 +14,13 @@
         <!-- HUD updated for two players -->
         <div id="hud">
             <div class="hud-item" id="p1-score">P1: 0</div>
-            <div class="hud-item" id="p2-score">P2: 0</div>
+            <div class="hud-item hidden" id="p2-score">P2: 0</div>
             <div class="hud-item" id="level">LEVEL: 1</div>
             <div class="hud-item" id="flowers-left">🌼: 5</div>
             <div class="hud-item" id="timer">⏱️ 3:00</div>
             <div class="hud-item" id="lives">LIVES: 🐝🐝🐝</div>
+            <!-- Dev mode indicator -->
+            <div id="dev-mode-indicator" class="hidden">DEV MODE</div>
         </div>
         
         <div id="game-area">
@@ -27,18 +29,33 @@
             </div>
         </div>
 
-        <!-- Game Over / Start Screen sits on top of everything -->
+        <!-- Game Over / Start Screen -->
         <div id="message-screen">
             <h1>Let's Get Ready to Bumble</h1>
             <p class="instructions">P1: Use A/D to move, W or Space to Thrust.</p>
-            <p class="instructions">P2: Use Arrow Keys to move and Thrust.</p>
+            <p class="instructions">P2: Press the UP ARROW to join the game!</p>
             <p class="instructions">Collect all 🌼 before time runs out!</p>
             <p class="instructions">Avoid the thorny 🌵!</p>
-            <button id="start-button">Start Game</button>
+            <div class="button-container">
+                <button id="start-button">Start Game</button>
+                <button id="help-button">Help (?)</button>
+            </div>
         </div>
 
         <!-- In-Game Message Overlay -->
         <div id="level-message-screen" class="hidden"></div>
+
+        <!-- NEW: Help Screen Overlay -->
+        <div id="help-screen" class="hidden">
+            <h2>How to Play</h2>
+            <p><strong>Objective:</strong> Work together to collect all the flowers (🌼) on each level before the timer runs out.</p>
+            <p><strong>Controls (P1):</strong> A/D to move left/right. W or SPACE to thrust upwards.</p>
+            <p><strong>Controls (P2):</strong> Arrow Keys to move and thrust.</p>
+            <p><strong>Joining:</strong> Player 2 can press the UP ARROW at any time to join the game.</p>
+            <p><strong>Dangers:</strong> Don't touch the cacti (🌵) or fall off the bottom of the world!</p>
+            <p><strong>Lives:</strong> You share a pool of lives. Be careful!</p>
+            <button id="close-help-button">Close</button>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>

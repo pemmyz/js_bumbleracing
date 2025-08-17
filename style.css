@@ -42,34 +42,32 @@ body {
     z-index: 100;
 }
 
-/* The visible viewport for the game */
 #game-area {
     width: 100%;
     height: 100%;
     position: relative;
-    overflow: hidden; /* This hides the scrollbar */
+    overflow: hidden;
     user-select: none;
     image-rendering: pixelated;
 }
 
-/* The container for all game objects, which will be taller than the screen */
 #world {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    height: 300%; /* Making the world 3x taller than the screen */
-    background-color: #87CEEB; /* Sky Blue */
+    height: 300%; 
+    background-color: #87CEEB;
 }
 
-/* Message Screens */
-#message-screen, #level-message-screen {
+/* Message & Help Screens */
+#message-screen, #level-message-screen, #help-screen {
     position: absolute;
-    top: 1.5em; /* Match screen padding */
+    top: 1.5em;
     left: 1.5em;
     right: 1.5em;
     bottom: 1.5em;
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(0, 0, 0, 0.8);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -79,50 +77,30 @@ body {
     transition: opacity 0.5s;
 }
 
-#level-message-screen {
-    font-size: 2.5em;
-    color: #FFD700;
-    text-shadow: 3px 3px 0 #000;
-}
+#level-message-screen { font-size: 2.5em; color: #FFD700; text-shadow: 3px 3px 0 #000; }
+#message-screen.hidden, #level-message-screen.hidden, #help-screen.hidden { opacity: 0; pointer-events: none; }
+#message-screen h1 { font-size: 2em; color: #FFD700; margin-bottom: 20px; }
+#message-screen .instructions { font-size: 0.8em; line-height: 1.8; }
 
-#message-screen.hidden, #level-message-screen.hidden {
-    opacity: 0;
-    pointer-events: none;
-}
+#help-screen { background-color: rgba(0, 0, 0, 0.9); text-align: left; padding: 2em; box-sizing: border-box; }
+#help-screen h2 { color: #FFD700; font-size: 1.5em; }
+#help-screen p { font-size: 0.7em; line-height: 2; max-width: 80%; }
+#close-help-button { margin-top: 20px; }
 
-#message-screen h1 { 
-    font-size: 2em; 
-    color: #FFD700; 
-    margin-bottom: 20px; 
-}
-#message-screen .instructions { 
-    font-size: 0.8em; 
-    line-height: 1.8; 
-}
-#start-button { 
-    margin-top: 30px; 
-    padding: 15px 30px; 
-    font-family: var(--retro-font); 
-    font-size: 1.2em; 
-    background-color: #4CAF50; 
-    color: white; 
-    border: 3px solid white; 
-    cursor: pointer; 
-    box-shadow: 0 5px #999; 
-}
-#start-button:hover { 
-    background-color: #45a049; 
-}
-#start-button:active { 
-    background-color: #45a049; 
-    box-shadow: 0 2px #666; 
-    transform: translateY(4px); 
-}
 
-/* HUD is now fixed to the screen */
+/* Buttons */
+.button-container { display: flex; gap: 20px; }
+#start-button, #help-button, #close-help-button { 
+    margin-top: 30px; padding: 15px 30px; font-family: var(--retro-font); font-size: 1em; background-color: #4CAF50; color: white; border: 3px solid white; cursor: pointer; box-shadow: 0 5px #999; 
+}
+#help-button { background-color: #008CBA; }
+#start-button:hover, #help-button:hover, #close-help-button:hover { transform: translateY(-2px); }
+#start-button:active, #help-button:active, #close-help-button:active { box-shadow: 0 2px #666; transform: translateY(4px); }
+
+/* HUD */
 #hud {
     position: absolute;
-    top: 1.5em; /* Match screen padding */
+    top: 1.5em;
     left: 1.5em;
     right: 1.5em;
     display: flex;
@@ -134,56 +112,21 @@ body {
     z-index: 10;
     color: #FFD700;
 }
+#dev-mode-indicator { color: #ff4757; position: absolute; top: 40px; left: 50%; transform: translateX(-50%); font-size: 0.8em; }
 
 /* Game Objects */
-.game-object { 
-    position: absolute; 
-    will-change: transform; 
-    font-size: 2em; 
-}
-.player { 
-    z-index: 5; 
-    font-size: 2.5em;
-    transition: filter 0.1s ease-in-out;
-}
+.hidden { display: none !important; }
+.game-object { position: absolute; will-change: transform; font-size: 2em; }
+.player { z-index: 5; font-size: 2.5em; transition: filter 0.1s ease-in-out; }
+.player-1-glow { filter: drop-shadow(0 0 10px gold) drop-shadow(0 0 4px gold); }
+.player-2-glow { filter: drop-shadow(0 0 12px mediumorchid) drop-shadow(0 0 5px mediumorchid); } /* UPDATED COLOR */
 
-/* NEW: Player Glow Effects */
-.player-1-glow {
-    filter: drop-shadow(0 0 10px gold) drop-shadow(0 0 4px gold);
-}
-.player-2-glow {
-    filter: drop-shadow(0 0 10px deepskyblue) drop-shadow(0 0 4px deepskyblue);
-}
-
-.platform { 
-    font-size: 2.5em; 
-    color: #228B22; 
-}
-.flower { 
-    z-index: 1; 
-    font-size: 2.2em; 
-}
-.thorn { 
-    font-size: 2.2em; 
-    color: #696969; 
-}
+.platform { font-size: 2.5em; color: #228B22; }
+.flower { z-index: 1; font-size: 2.2em; }
+.thorn { font-size: 2.2em; color: #696969; }
 
 /* Clouds */
-.cloud-container {
-    position: absolute;
-    pointer-events: none; 
-    filter: blur(1px); 
-}
-
-.cloud-puff {
-    position: absolute;
-    border-radius: 50%;
-}
-
-.cloud-puff.regular {
-    background-color: rgba(255, 255, 255, 0.7);
-}
-
-.cloud-puff.thunder {
-    background-color: rgba(128, 128, 128, 0.7);
-}
+.cloud-container { position: absolute; pointer-events: none; filter: blur(1px); }
+.cloud-puff { position: absolute; border-radius: 50%; }
+.cloud-puff.regular { background-color: rgba(255, 255, 255, 0.7); }
+.cloud-puff.thunder { background-color: rgba(128, 128, 128, 0.7); }

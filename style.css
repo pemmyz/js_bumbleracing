@@ -105,6 +105,7 @@ body {
     right: 1.5em;
     display: flex;
     justify-content: space-between;
+    align-items: flex-start; /* MODIFICATION: Align items to top */
     padding: 10px 20px;
     box-sizing: border-box;
     font-size: 1.2em;
@@ -112,6 +113,13 @@ body {
     z-index: 10;
     color: #FFD700;
 }
+
+/* MODIFICATION START: Add color to P2 score */
+#p2-score {
+    color: mediumorchid;
+}
+/* MODIFICATION END */
+
 #dev-mode-indicator { color: #ff4757; position: absolute; top: 40px; left: 50%; transform: translateX(-50%); font-size: 0.8em; }
 
 /* Game Objects */

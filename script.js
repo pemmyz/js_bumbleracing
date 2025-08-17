@@ -67,10 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetLevelState() {
-        state.players = [];
+        // We only reset level-specific state here. Players' core data (like score) is handled separately.
         state.platforms = []; state.thorns = []; state.flowers = []; state.clouds = [];
         state.frame = 0; state.flowersToCollect = 0; state.timeLeft = gameConstants.LEVEL_TIME;
         state.levelInProgress = false; state.cameraY = 0;
+        state.players = []; // This clears the old player objects (DOM elements, positions, etc.)
     }
 
     function startGame() {
@@ -81,6 +82,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function startLevel() {
+        // --- MODIFICATION START ---
+        // 1. Capture the scores from the previous level before resetting everything.
+        // On the very first level, state.players won't exist, so we default to an empty array.
+        const oldScores = (state.players || []).map(p => p ? p.score : 0);
+        // --- MODIFICATION END ---
+        
         resetLevelState();
         clearDynamicElements();
         prepopulateClouds(15); 
@@ -92,11 +99,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const worldRect = world.getBoundingClientRect();
         const startY = worldRect.height - 200;
         
-        addPlayer(0, startY);
+        // --- MODIFICATION START ---
+        // 2. Pass the saved score when creating the player for the new level.
+        addPlayer(0, startY, oldScores[0] || 0);
 
         if (state.isTwoPlayer) {
-            addPlayer(1, startY);
+            addPlayer(1, startY, oldScores[1] || 0);
         }
+        // --- MODIFICATION END ---
 
         const startPlatform = { x: worldRect.width / 2 - 80, y: startY + 100, width: 200, height: 20, };
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
@@ -113,7 +123,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function addPlayer(playerIndex, startY) {
+    // --- MODIFICATION START ---
+    // 3. Update addPlayer to accept a starting score.
+    function addPlayer(playerIndex, startY, score = 0) {
+    // --- MODIFICATION END ---
         const worldRect = world.getBoundingClientRect();
         const player = {
             id: playerIndex + 1,
@@ -122,7 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
             y: startY,
             vx: 0, vy: 0, width: 40, height: 40,
             lastDirection: -1,
-            score: state.players[playerIndex]?.score || 0,
+            // --- MODIFICATION START ---
+            score: score, // Use the passed-in score
+            // --- MODIFICATION END ---
             controls: playerControls[playerIndex]
         };
         player.el = createGameObject(`player player-${player.id}-glow`, '🐝', player.x, player.y);
@@ -234,62 +249,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const worldRect = world.getBoundingClientRect();
         const screenHeight = gameArea.clientHeight;
 
-        // --- SINGLE PLAYER LOGIC ---
         if (!state.isTwoPlayer || state.players.length < 2 || !state.players[1]) {
             const p = state.players[0];
             if (!p) return;
-
             p.vy += gameConstants.GRAVITY;
             if (p.vy > gameConstants.MAX_FALL_SPEED) p.vy = gameConstants.MAX_FALL_SPEED;
             p.x += p.vx;
             p.y += p.vy;
-
-        // --- TWO PLAYER LOGIC (WITH SCREEN-EDGE TETHER) ---
         } else {
             const p1 = state.players[0];
             const p2 = state.players[1];
-
-            // Apply physics to both players
             [p1, p2].forEach(p => {
                 p.vy += gameConstants.GRAVITY;
                 if (p.vy > gameConstants.MAX_FALL_SPEED) p.vy = gameConstants.MAX_FALL_SPEED;
                 p.x += p.vx;
             });
-
-            // Calculate potential next Y positions
             let p1_nextY = p1.y + p1.vy;
             let p2_nextY = p2.y + p2.vy;
-            
-            // Determine who is on top and who is at the bottom
             const topPlayer = (p1_nextY < p2_nextY) ? p1 : p2;
             const bottomPlayer = (p1_nextY < p2_nextY) ? p2 : p1;
             const topPlayer_nextY = (p1_nextY < p2_nextY) ? p1_nextY : p2_nextY;
             const bottomPlayer_nextY = (p1_nextY < p2_nextY) ? p2_nextY : p1_nextY;
-
-            // Check if they are trying to move more than a screen height apart
             if ((bottomPlayer_nextY + bottomPlayer.height) - topPlayer_nextY > screenHeight) {
-                // They are too far apart. Lock them to the screen edges.
                 const midpoint = (topPlayer_nextY + (bottomPlayer_nextY + bottomPlayer.height)) / 2;
                 topPlayer.y = midpoint - (screenHeight / 2);
                 bottomPlayer.y = midpoint + (screenHeight / 2) - bottomPlayer.height;
-                // Stop their vertical movement to prevent "sticking"
                 p1.vy = 0;
                 p2.vy = 0;
             } else {
-                // They are within bounds, so update their positions normally
                 p1.y = p1_nextY;
                 p2.y = p2_nextY;
             }
         }
         
-        // --- Universal Boundary Checks (applied to all players) ---
         state.players.forEach(p => {
             if (!p) return;
-            // Horizontal world bounds
             if (p.x < 0) p.x = 0;
             if (p.x + p.width > worldRect.width) p.x = worldRect.width - p.width;
-
-            // Vertical world bounds
             if (p.y < 0) { p.y = 0; p.vy = 0; }
             if (p.y + p.height > worldRect.height) handleDeath();
         });
@@ -329,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function collectFlower(flower, index, player) {
         flower.el.remove(); state.flowers.splice(index, 1);
         player.score += 100;
-        state.totalScore += 100;
+        state.totalScore = state.players.reduce((sum, p) => sum + (p ? p.score : 0), 0); // Recalculate total score
         state.flowersToCollect--;
         updateHUD();
         if (state.flowersToCollect <= 0) { nextLevel(); }
@@ -337,7 +333,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function nextLevel() {
         state.levelInProgress = false; 
-        state.totalScore += Math.max(0, state.timeLeft * 10); 
+        state.totalScore += Math.max(0, state.timeLeft * 10);
+        // Apply time bonus to each player proportionally to their contribution
+        if (state.totalScore > 0) {
+            const timeBonus = Math.max(0, state.timeLeft * 10);
+            state.players.forEach(p => {
+                if(p) {
+                    const scoreContribution = p.score / state.totalScore;
+                    p.score += Math.round(timeBonus * scoreContribution);
+                }
+            });
+        }
+        
         state.level++;
         if (state.level % 3 === 0) state.lives++;
         showLevelMessage("Level Complete!", 2000, startLevel);
@@ -362,10 +369,14 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelAnimationFrame(state.gameLoopId);
         messageScreen.querySelector('h1').textContent = 'Game Over';
         const p = messageScreen.querySelectorAll('.instructions');
+        const finalP1Score = state.players[0]?.score || 0;
+        const finalP2Score = state.players[1]?.score || 0;
+        state.totalScore = finalP1Score + finalP2Score;
+
         p[0].textContent = `Final Score: ${state.totalScore}`;
-        p[1].textContent = `P1: ${state.players[0]?.score || 0}`;
+        p[1].textContent = `P1: ${finalP1Score}`;
         if (state.isTwoPlayer) {
-            p[1].textContent += ` | P2: ${state.players[1]?.score || 0}`;
+            p[1].textContent += ` | P2: ${finalP2Score}`;
         }
         p[2].textContent = `Reached Level: ${state.level}`;
         p[3].textContent = '';
@@ -435,7 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'ArrowUp' && !state.isTwoPlayer && state.gameLoopId) {
             e.preventDefault();
             state.isTwoPlayer = true;
-            addPlayer(1, state.players[0].y);
+            addPlayer(1, state.players[0].y, 0); // P2 starts with 0 score
             p2ScoreEl.classList.remove('hidden');
             console.log("Player 2 has joined the game!");
         }

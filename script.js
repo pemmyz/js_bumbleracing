@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function startGame() {
         resetGame();
         messageScreen.classList.add('hidden');
-        p2ScoreEl.classList.add('hidden'); // Ensure P2 score is hidden at start
+        p2ScoreEl.classList.add('hidden');
         startLevel();
     }
     
@@ -92,10 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const worldRect = world.getBoundingClientRect();
         const startY = worldRect.height - 200;
         
-        // Always create player 1
         addPlayer(0, startY);
 
-        // If P2 was in the game, bring them back on level retry
         if (state.isTwoPlayer) {
             addPlayer(1, startY);
         }
@@ -124,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
             y: startY,
             vx: 0, vy: 0, width: 40, height: 40,
             lastDirection: -1,
-            score: state.players[playerIndex]?.score || 0, // Persist score
+            score: state.players[playerIndex]?.score || 0,
             controls: playerControls[playerIndex]
         };
         player.el = createGameObject(`player player-${player.id}-glow`, '🐝', player.x, player.y);
@@ -224,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleInput() {
         state.players.forEach(player => {
-            if (!player) return; // Skip if player doesn't exist yet
+            if (!player) return;
             player.vx = 0;
             if (keys[player.controls.left]) { player.vx = -gameConstants.PLAYER_SPEED; player.lastDirection = 1; }
             if (keys[player.controls.right]) { player.vx = gameConstants.PLAYER_SPEED; player.lastDirection = -1; }
@@ -234,17 +232,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updatePlayers() {
         const worldRect = world.getBoundingClientRect();
-        state.players.forEach(player => {
-            if (!player) return;
-            player.vy += gameConstants.GRAVITY;
-            if (player.vy > gameConstants.MAX_FALL_SPEED) player.vy = gameConstants.MAX_FALL_SPEED;
-            player.x += player.vx;
-            player.y += player.vy;
+        const screenHeight = gameArea.clientHeight;
+
+        // --- SINGLE PLAYER LOGIC ---
+        if (!state.isTwoPlayer || state.players.length < 2 || !state.players[1]) {
+            const p = state.players[0];
+            if (!p) return;
+
+            p.vy += gameConstants.GRAVITY;
+            if (p.vy > gameConstants.MAX_FALL_SPEED) p.vy = gameConstants.MAX_FALL_SPEED;
+            p.x += p.vx;
+            p.y += p.vy;
+
+        // --- TWO PLAYER LOGIC (WITH SCREEN-EDGE TETHER) ---
+        } else {
+            const p1 = state.players[0];
+            const p2 = state.players[1];
+
+            // Apply physics to both players
+            [p1, p2].forEach(p => {
+                p.vy += gameConstants.GRAVITY;
+                if (p.vy > gameConstants.MAX_FALL_SPEED) p.vy = gameConstants.MAX_FALL_SPEED;
+                p.x += p.vx;
+            });
+
+            // Calculate potential next Y positions
+            let p1_nextY = p1.y + p1.vy;
+            let p2_nextY = p2.y + p2.vy;
             
-            if (player.x < 0) player.x = 0;
-            if (player.x + player.width > worldRect.width) player.x = worldRect.width - player.width;
-            if (player.y < 0) { player.y = 0; player.vy = 0; }
-            if (player.y + player.height > worldRect.height) handleDeath();
+            // Determine who is on top and who is at the bottom
+            const topPlayer = (p1_nextY < p2_nextY) ? p1 : p2;
+            const bottomPlayer = (p1_nextY < p2_nextY) ? p2 : p1;
+            const topPlayer_nextY = (p1_nextY < p2_nextY) ? p1_nextY : p2_nextY;
+            const bottomPlayer_nextY = (p1_nextY < p2_nextY) ? p2_nextY : p1_nextY;
+
+            // Check if they are trying to move more than a screen height apart
+            if ((bottomPlayer_nextY + bottomPlayer.height) - topPlayer_nextY > screenHeight) {
+                // They are too far apart. Lock them to the screen edges.
+                const midpoint = (topPlayer_nextY + (bottomPlayer_nextY + bottomPlayer.height)) / 2;
+                topPlayer.y = midpoint - (screenHeight / 2);
+                bottomPlayer.y = midpoint + (screenHeight / 2) - bottomPlayer.height;
+                // Stop their vertical movement to prevent "sticking"
+                p1.vy = 0;
+                p2.vy = 0;
+            } else {
+                // They are within bounds, so update their positions normally
+                p1.y = p1_nextY;
+                p2.y = p2_nextY;
+            }
+        }
+        
+        // --- Universal Boundary Checks (applied to all players) ---
+        state.players.forEach(p => {
+            if (!p) return;
+            // Horizontal world bounds
+            if (p.x < 0) p.x = 0;
+            if (p.x + p.width > worldRect.width) p.x = worldRect.width - p.width;
+
+            // Vertical world bounds
+            if (p.y < 0) { p.y = 0; p.vy = 0; }
+            if (p.y + p.height > worldRect.height) handleDeath();
         });
     }
     
@@ -252,9 +299,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const gameRect = gameArea.getBoundingClientRect();
         const worldRect = world.getBoundingClientRect();
         
-        // Gracefully handle one or two players for camera tracking
         const p1_y = state.players[0].y;
-        const p2_y = state.players[1]?.y || p1_y; // Use P1's Y if P2 doesn't exist
+        const p2_y = state.players[1]?.y || p1_y;
         const averagePlayerY = (p1_y + p2_y) / 2;
 
         let targetCameraY = averagePlayerY - (gameRect.height / 2);
@@ -298,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleDeath() {
-        if (state.devMode) return; // Dev mode invincibility
+        if (state.devMode) return;
         if (!state.levelInProgress) return;
         state.levelInProgress = false; 
         state.lives--;
@@ -328,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateTimer() {
-        if (state.devMode) return; // Dev mode infinite time
+        if (state.devMode) return;
         if (state.levelInProgress) { state.timeLeft--; updateHUD(); if (state.timeLeft <= 0) handleDeath(); }
     }
 
@@ -386,28 +432,24 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('keydown', e => { 
         if (e.key in keys) { e.preventDefault(); keys[e.key] = true; }
 
-        // P2 Join-in logic
         if (e.key === 'ArrowUp' && !state.isTwoPlayer && state.gameLoopId) {
             e.preventDefault();
             state.isTwoPlayer = true;
-            addPlayer(1, state.players[0].y); // Add P2 at P1's current height
+            addPlayer(1, state.players[0].y);
             p2ScoreEl.classList.remove('hidden');
             console.log("Player 2 has joined the game!");
         }
 
-        // Help Menu toggle (with 'h' or '?')
         if (e.key.toLowerCase() === 'h' || e.key === '?') {
-            if (messageScreen.classList.contains('hidden')) { // only toggle help if main menu is hidden
+            if (messageScreen.classList.contains('hidden')) {
                helpScreen.classList.toggle('hidden');
             }
         }
         
-        // Dev Mode toggle (Ctrl+Shift+D)
         if (e.ctrlKey && e.shiftKey && e.key === 'D') {
             toggleDevMode();
         }
 
-        // Dev Mode commands
         if (state.devMode && state.levelInProgress) {
             if (e.key.toLowerCase() === 'n') {
                 console.log("DEV: Skipping to next level.");

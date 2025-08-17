@@ -1,8 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- (No changes to the top part of the file) ---
+    // --- Element Selectors ---
     const gameArea = document.getElementById('game-area');
     const world = document.getElementById('world');
-    const scoreEl = document.getElementById('score');
+    const p1ScoreEl = document.getElementById('p1-score');
+    const p2ScoreEl = document.getElementById('p2-score');
     const levelEl = document.getElementById('level');
     const flowersLeftEl = document.getElementById('flowers-left');
     const timerEl = document.getElementById('timer');
@@ -10,10 +11,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageScreen = document.getElementById('message-screen');
     const levelMessageScreen = document.getElementById('level-message-screen');
     const startButton = document.getElementById('start-button');
+
+    // --- Game Constants ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
+    
+    // --- Game State ---
     let state = {};
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
+
+    // Player control mappings
+    const playerControls = [
+        { up: ['w', ' '], left: 'a', right: 'd' },
+        { up: ['ArrowUp'], left: 'ArrowLeft', right: 'ArrowRight' }
+    ];
     
+    // --- Classes ---
     class Cloud {
         constructor(x, y, isThunder = false) {
             this.isThunder = isThunder;
@@ -49,12 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
         destroy() { this.el.remove(); }
     }
 
+    // --- Game Initialization ---
     function resetGame() {
-        state = { level: 1, score: 0, lives: 3, gameLoopId: null, timerId: null, gameOver: false, };
+        state = { level: 1, totalScore: 0, lives: 3, gameLoopId: null, timerId: null, gameOver: false, };
     }
 
     function resetLevelState() {
-        state.player = { el: null, x: 0, y: 0, vx: 0, vy: 0, width: 40, height: 40, lastDirection: -1, };
+        state.players = [];
         state.platforms = []; state.thorns = []; state.flowers = []; state.clouds = [];
         state.frame = 0; state.flowersToCollect = 0; state.timeLeft = gameConstants.LEVEL_TIME;
         state.levelInProgress = false; state.cameraY = 0;
@@ -75,15 +88,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const levelConfig = getLevelConfig(state.level);
         state.flowersToCollect = levelConfig.flowers;
         generateLevel(levelConfig.platforms, levelConfig.thorns, levelConfig.flowers);
+        
         const worldRect = world.getBoundingClientRect();
-        state.player.x = worldRect.width / 2;
-        state.player.y = worldRect.height - 200;
-        state.player.el = createGameObject('player', '🐝', state.player.x, state.player.y);
-        const startPlatform = { x: state.player.x - 20, y: state.player.y + 100, width: 80, height: 20, isStartPlatform: true, };
+        const startY = worldRect.height - 200;
+        const startPlatformY = startY + 100;
+        
+        // Create two players
+        for (let i = 0; i < 2; i++) {
+            const player = {
+                id: i + 1,
+                el: null,
+                x: worldRect.width / 2 + (i === 0 ? -40 : 40), // Start side-by-side
+                y: startY,
+                vx: 0, vy: 0, width: 40, height: 40,
+                lastDirection: -1,
+                score: state.players[i] ? state.players[i].score : 0, // Persist score on death retry
+                controls: playerControls[i]
+            };
+            player.el = createGameObject(`player player-${player.id}-glow`, '🐝', player.x, player.y);
+            state.players.push(player);
+        }
+
+        const startPlatform = { 
+            x: worldRect.width / 2 - 60, 
+            y: startPlatformY, 
+            width: 160, 
+            height: 20, 
+        };
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
         state.platforms.push(startPlatform);
+        
         const gameRect = gameArea.getBoundingClientRect();
-        state.cameraY = state.player.y - (gameRect.height / 2);
+        state.cameraY = startY - (gameRect.height / 2);
+
         updateCamera();
         updateHUD();
         showLevelMessage(`Level ${state.level}`, 1500, () => {
@@ -94,14 +131,12 @@ document.addEventListener('DOMContentLoaded', () => {
             gameLoop();
         });
     }
-    
+
+    // --- Level Generation (Unchanged from original, except thorn placement logic) ---
     function prepopulateClouds(count) {
         const worldRect = world.getBoundingClientRect();
         for (let i = 0; i < count; i++) {
-            const randomX = Math.random() * worldRect.width;
-            const randomY = Math.random() * worldRect.height;
-            const isThunder = Math.random() < 0.3; // 30% chance
-            state.clouds.push(new Cloud(randomX, randomY, isThunder));
+            state.clouds.push(new Cloud(Math.random() * worldRect.width, Math.random() * worldRect.height, Math.random() < 0.3));
         }
     }
 
@@ -114,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let flowerPlaced = 0;
         let platformsForFlowers = [];
         for (let i = 0; i < platformCount; i++) {
-            const platform = { x: Math.random() * (worldRect.width - 80), y: Math.random() * (worldRect.height - 250), width: 80, height: 20, hasFlower: false, };
+            const platform = { x: Math.random() * (worldRect.width - 80), y: Math.random() * (worldRect.height - 250), width: 80, height: 20 };
             platform.el = createGameObject('platform', '🌿', platform.x, platform.y);
             state.platforms.push(platform);
             platformsForFlowers.push(platform);
@@ -129,43 +164,182 @@ document.addEventListener('DOMContentLoaded', () => {
             flowerPlaced++;
         }
         
-        // --- MODIFIED: Thorn Generation Logic ---
         const thornGroupCount = Math.floor(thornCount / 3);
         for (let i = 0; i < thornGroupCount; i++) {
-            // 1. Define a central point for the cluster, avoiding screen edges
             const clusterCenterX = Math.random() * (worldRect.width - 120) + 60;
-            const clusterCenterY = Math.random() * (worldRect.height - 350); // Avoid spawning too low
-
-            // 2. Define player start area to avoid spawning thorns there
+            const clusterCenterY = Math.random() * (worldRect.height - 350);
             const playerStartX = worldRect.width / 2;
             const playerStartY = worldRect.height - 200;
-
-            // 3. If cluster is too close to player start, retry placement
             if (Math.abs(clusterCenterX - playerStartX) < 200 && Math.abs(clusterCenterY - playerStartY) < 200) {
-                i--; // Decrement i to ensure the correct number of clusters are generated
-                continue;
+                i--; continue;
             }
-
-            // 4. Create three thorns in a cluster with some random variation
             const thornPositions = [
-                { x: clusterCenterX, y: clusterCenterY }, // Center thorn
-                { x: clusterCenterX - 25 + (Math.random() * 10 - 5), y: clusterCenterY + 5 + (Math.random() * 10 - 5) }, // Left thorn
-                { x: clusterCenterX + 25 + (Math.random() * 10 - 5), y: clusterCenterY + 5 + (Math.random() * 10 - 5) }  // Right thorn
+                { x: clusterCenterX, y: clusterCenterY },
+                { x: clusterCenterX - 25 + (Math.random() * 10 - 5), y: clusterCenterY + 5 + (Math.random() * 10 - 5) },
+                { x: clusterCenterX + 25 + (Math.random() * 10 - 5), y: clusterCenterY + 5 + (Math.random() * 10 - 5) }
             ];
-
             for (const pos of thornPositions) {
-                const thorn = {
-                    x: pos.x,
-                    y: pos.y,
-                    width: 40,
-                    height: 40,
-                };
+                const thorn = { x: pos.x, y: pos.y, width: 40, height: 40, };
                 thorn.el = createGameObject('thorn', '🌵', thorn.x, thorn.y);
                 state.thorns.push(thorn);
             }
         }
     }
 
+    // --- Game Loop ---
+    function gameLoop() {
+        if (state.gameOver) return;
+        if(state.levelInProgress){
+            handleCloudGeneration();
+            updateAndDrawClouds();
+            handleInput();
+            updatePlayers();
+            handleCollisions();
+        }
+        drawPlayers();
+        updateCamera();
+        state.gameLoopId = requestAnimationFrame(gameLoop);
+    }
+
+    function handleInput() {
+        state.players.forEach(player => {
+            player.vx = 0;
+            if (keys[player.controls.left]) { player.vx = -gameConstants.PLAYER_SPEED; player.lastDirection = 1; }
+            if (keys[player.controls.right]) { player.vx = gameConstants.PLAYER_SPEED; player.lastDirection = -1; }
+            if (player.controls.up.some(key => keys[key])) { player.vy -= gameConstants.THRUST; }
+        });
+    }
+
+    function updatePlayers() {
+        const worldRect = world.getBoundingClientRect();
+        state.players.forEach(player => {
+            player.vy += gameConstants.GRAVITY;
+            if (player.vy > gameConstants.MAX_FALL_SPEED) player.vy = gameConstants.MAX_FALL_SPEED;
+            player.x += player.vx;
+            player.y += player.vy;
+            
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > worldRect.width) player.x = worldRect.width - player.width;
+            if (player.y < 0) { player.y = 0; player.vy = 0; }
+            if (player.y + player.height > worldRect.height) handleDeath();
+        });
+    }
+    
+    function updateCamera() {
+        const gameRect = gameArea.getBoundingClientRect();
+        const worldRect = world.getBoundingClientRect();
+        
+        // Follow the average Y position of both players
+        const averagePlayerY = (state.players[0].y + state.players[1].y) / 2;
+        let targetCameraY = averagePlayerY - (gameRect.height / 2);
+
+        const maxCameraY = worldRect.height - gameRect.height;
+        if (targetCameraY > maxCameraY) targetCameraY = maxCameraY;
+        if (targetCameraY < 0) targetCameraY = 0;
+        state.cameraY = targetCameraY;
+        gameArea.scrollTop = state.cameraY;
+    }
+
+    function handleCollisions() {
+        state.players.forEach(p => {
+            for (const thorn of state.thorns) { if (isColliding(p, thorn)) { handleDeath(); return; } }
+            for (let i = state.flowers.length - 1; i >= 0; i--) { const flower = state.flowers[i]; if (isColliding(p, flower)) { collectFlower(flower, i, p); } }
+            for (const platform of state.platforms) {
+                if (isColliding(p, platform)) {
+                    const prevPlayerBottom = (p.y - p.vy) + p.height;
+                    if (p.vy > 0 && prevPlayerBottom <= platform.y + 5) { p.y = platform.y - p.height; p.vy = gameConstants.BOUNCE_VELOCITY; }
+                }
+            }
+        });
+    }
+    
+    // --- State Changers & Handlers ---
+    function collectFlower(flower, index, player) {
+        flower.el.remove(); state.flowers.splice(index, 1);
+        player.score += 100;
+        state.totalScore += 100;
+        state.flowersToCollect--;
+        updateHUD();
+        if (state.flowersToCollect <= 0) { nextLevel(); }
+    }
+
+    function nextLevel() {
+        state.levelInProgress = false; 
+        state.totalScore += Math.max(0, state.timeLeft * 10); 
+        state.level++;
+        if (state.level % 3 === 0) state.lives++;
+        showLevelMessage("Level Complete!", 2000, startLevel);
+    }
+
+    function handleDeath() {
+        if (!state.levelInProgress) return;
+        state.levelInProgress = false; 
+        state.lives--;
+        updateHUD();
+        if (state.lives <= 0) {
+            endGame(); 
+        } else {
+            // Important: We call startLevel but game state (level, lives, scores) is preserved
+            showLevelMessage("Try Again", 2000, startLevel);
+        }
+    }
+
+    function endGame() {
+        state.gameOver = true; 
+        clearInterval(state.timerId); 
+        cancelAnimationFrame(state.gameLoopId);
+        messageScreen.querySelector('h1').textContent = 'Game Over';
+        const p = messageScreen.querySelectorAll('.instructions');
+        p[0].textContent = `Final Score: ${state.totalScore}`;
+        p[1].textContent = `P1: ${state.players[0].score} | P2: ${state.players[1].score}`;
+        p[2].textContent = `Reached Level: ${state.level}`;
+        p[3].textContent = '';
+        startButton.textContent = 'Play Again'; 
+        messageScreen.classList.remove('hidden');
+    }
+
+    function updateTimer() {
+        if (state.levelInProgress) { state.timeLeft--; updateHUD(); if (state.timeLeft <= 0) handleDeath(); }
+    }
+
+    // --- Drawing & UI ---
+    function updateHUD() {
+        p1ScoreEl.textContent = `P1: ${state.players.length > 0 ? state.players[0].score : 0}`;
+        p2ScoreEl.textContent = `P2: ${state.players.length > 1 ? state.players[1].score : 0}`;
+        levelEl.textContent = `LEVEL: ${state.level}`;
+        flowersLeftEl.textContent = `🌼: ${state.flowersToCollect}`;
+        livesEl.textContent = `LIVES: ${'🐝'.repeat(Math.max(0, state.lives))}`;
+        const minutes = Math.floor(state.timeLeft / 60); const seconds = state.timeLeft % 60;
+        timerEl.textContent = `⏱️ ${minutes}:${String(seconds).padStart(2, '0')}`;
+    }
+    
+    function drawPlayers() {
+        state.players.forEach(player => {
+            if (!player.el) return;
+            player.el.style.transform = `translate(${player.x}px, ${player.y}px) scaleX(${player.lastDirection})`;
+        });
+    }
+
+    function showLevelMessage(text, duration, callback) {
+        levelMessageScreen.textContent = text; levelMessageScreen.classList.remove('hidden');
+        setTimeout(() => { levelMessageScreen.classList.add('hidden'); if (callback) callback(); }, duration);
+    }
+    
+    // --- Utility Functions ---
+    function createGameObject(className, emoji, x, y) {
+        const el = document.createElement('div');
+        el.className = `game-object ${className}`; el.textContent = emoji;
+        el.style.transform = `translate(${x}px, ${y}px)`;
+        world.appendChild(el);
+        return el;
+    }
+
+    function isColliding(rect1, rect2) {
+        return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
+    }
+    
+    function clearDynamicElements() { world.innerHTML = ''; }
+    
     function handleCloudGeneration() {
         state.frame++;
         const worldRect = world.getBoundingClientRect();
@@ -188,126 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function gameLoop() {
-        if (state.gameOver) return;
-        if(state.levelInProgress){
-            handleCloudGeneration();
-            updateAndDrawClouds();
-            handleInput();
-            updatePlayer();
-            handleCollisions();
-        }
-        drawPlayer();
-        updateCamera();
-        state.gameLoopId = requestAnimationFrame(gameLoop);
-    }
-
-    function handleInput() {
-        state.player.vx = 0;
-        if (keys.ArrowLeft || keys.a) { state.player.vx = -gameConstants.PLAYER_SPEED; state.player.lastDirection = 1; }
-        if (keys.ArrowRight || keys.d) { state.player.vx = gameConstants.PLAYER_SPEED; state.player.lastDirection = -1; }
-        if (keys.ArrowUp || keys.w || keys[' ']) { state.player.vy -= gameConstants.THRUST; }
-    }
-
-    function updatePlayer() {
-        state.player.vy += gameConstants.GRAVITY;
-        if (state.player.vy > gameConstants.MAX_FALL_SPEED) state.player.vy = gameConstants.MAX_FALL_SPEED;
-        state.player.x += state.player.vx;
-        state.player.y += state.player.vy;
-        const worldRect = world.getBoundingClientRect();
-        if (state.player.x < 0) state.player.x = 0;
-        if (state.player.x + state.player.width > worldRect.width) state.player.x = worldRect.width - state.player.width;
-        if (state.player.y < 0) { state.player.y = 0; state.player.vy = 0; }
-        if (state.player.y + state.player.height > worldRect.height) handleDeath();
-    }
-    
-    function updateCamera() {
-        const gameRect = gameArea.getBoundingClientRect();
-        const worldRect = world.getBoundingClientRect();
-        let targetCameraY = state.player.y - (gameRect.height / 2);
-        const maxCameraY = worldRect.height - gameRect.height;
-        if (targetCameraY > maxCameraY) targetCameraY = maxCameraY;
-        if (targetCameraY < 0) targetCameraY = 0;
-        state.cameraY = targetCameraY;
-        gameArea.scrollTop = state.cameraY;
-    }
-
-    function handleCollisions() {
-        const p = state.player;
-        for (const thorn of state.thorns) { if (isColliding(p, thorn)) { handleDeath(); return; } }
-        for (let i = state.flowers.length - 1; i >= 0; i--) { const flower = state.flowers[i]; if (isColliding(p, flower)) { collectFlower(flower, i); } }
-        for (const platform of state.platforms) {
-            if (isColliding(p, platform)) {
-                const prevPlayerBottom = (p.y - p.vy) + p.height;
-                if (p.vy > 0 && prevPlayerBottom <= platform.y + 5) { p.y = platform.y - p.height; p.vy = gameConstants.BOUNCE_VELOCITY; }
-            }
-        }
-    }
-    
-    function collectFlower(flower, index) {
-        flower.el.remove(); state.flowers.splice(index, 1);
-        state.score += 100; state.flowersToCollect--;
-        updateHUD();
-        if (state.flowersToCollect <= 0) { nextLevel(); }
-    }
-
-    function nextLevel() {
-        state.levelInProgress = false; state.score += Math.max(0, state.timeLeft * 10); state.level++;
-        if (state.level % 3 === 0) state.lives++;
-        showLevelMessage("Level Complete!", 2000, startLevel);
-    }
-
-    function handleDeath() {
-        if (!state.levelInProgress) return;
-        state.levelInProgress = false; state.lives--;
-        updateHUD();
-        if (state.lives <= 0) endGame(); else showLevelMessage("Try Again", 2000, startLevel);
-    }
-
-    function endGame() {
-        state.gameOver = true; clearInterval(state.timerId); cancelAnimationFrame(state.gameLoopId);
-        messageScreen.querySelector('h1').textContent = 'Game Over';
-        const p = messageScreen.querySelectorAll('.instructions');
-        p[0].textContent = `Final Score: ${state.score}`; p[1].textContent = `Reached Level: ${state.level}`; p[2].textContent = ''; p[3].textContent = '';
-        startButton.textContent = 'Play Again'; messageScreen.classList.remove('hidden');
-    }
-
-    function updateTimer() {
-        if (state.levelInProgress) { state.timeLeft--; updateHUD(); if (state.timeLeft <= 0) handleDeath(); }
-    }
-
-    function updateHUD() {
-        scoreEl.textContent = `SCORE: ${state.score}`; levelEl.textContent = `LEVEL: ${state.level}`;
-        flowersLeftEl.textContent = `🌼: ${state.flowersToCollect}`;
-        livesEl.textContent = `BEE: ${'🐝'.repeat(Math.max(0, state.lives))}`;
-        const minutes = Math.floor(state.timeLeft / 60); const seconds = state.timeLeft % 60;
-        timerEl.textContent = `⏱️ ${minutes}:${String(seconds).padStart(2, '0')}`;
-    }
-    
-    function createGameObject(className, emoji, x, y) {
-        const el = document.createElement('div');
-        el.className = `game-object ${className}`; el.textContent = emoji;
-        el.style.transform = `translate(${x}px, ${y}px)`;
-        world.appendChild(el);
-        return el;
-    }
-    
-    function drawPlayer() {
-        if (!state.player.el) return;
-        state.player.el.style.transform = `translate(${state.player.x}px, ${state.player.y}px) scaleX(${state.player.lastDirection})`;
-    }
-    
-    function isColliding(rect1, rect2) {
-        return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
-    }
-    
-    function clearDynamicElements() { world.innerHTML = ''; }
-
-    function showLevelMessage(text, duration, callback) {
-        levelMessageScreen.textContent = text; levelMessageScreen.classList.remove('hidden');
-        setTimeout(() => { levelMessageScreen.classList.add('hidden'); if (callback) callback(); }, duration);
-    }
-
+    // --- Event Listeners ---
     window.addEventListener('keydown', e => { if (e.key in keys) { e.preventDefault(); keys[e.key] = true; } });
     window.addEventListener('keyup', e => { if (e.key in keys) { e.preventDefault(); keys[e.key] = false; } });
     startButton.addEventListener('click', startGame);

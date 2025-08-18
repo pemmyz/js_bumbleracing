@@ -92,6 +92,17 @@ body {
 #help-screen { background-color: rgba(0, 0, 0, 0.9); text-align: left; padding: 2em; box-sizing: border-box; }
 #help-screen h2 { color: #FFD700; font-size: 1.5em; }
 #help-screen p { font-size: 0.7em; line-height: 2; max-width: 80%; }
+
+/* NEW: Styles for the GitHub link */
+#help-screen a {
+    color: #FFD700;
+    text-decoration: underline;
+    transition: color 0.2s;
+}
+#help-screen a:hover {
+    color: #fff;
+}
+
 #close-help-button { margin-top: 20px; }
 
 
@@ -104,19 +115,18 @@ body {
 #start-button:hover, #help-button:hover, #close-help-button:hover, #external-help-button:hover { transform: translateY(-2px); }
 #start-button:active, #help-button:active, #close-help-button:active, #external-help-button:active { box-shadow: 0 2px #666; transform: translateY(4px); }
 
-/* NEW: Styles for the bar below the game screen */
 #controls-bar {
     width: 90vw;
     max-width: 960px;
     display: flex;
-    justify-content: flex-start; /* Aligns items (the button) to the left */
+    justify-content: flex-start;
     padding-top: 15px;
 }
 
 #external-help-button {
     font-size: 0.8em;
     padding: 10px 15px;
-    margin: 0; /* Override the shared margin-top */
+    margin: 0;
 }
 
 /* HUD */

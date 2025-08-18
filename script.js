@@ -328,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function nextLevel() {
+        clearInterval(state.timerId); // MODIFICATION: Stop the timer
         state.levelInProgress = false; 
         state.totalScore += Math.max(0, state.timeLeft * 10);
         if (state.totalScore > 0) {
@@ -348,6 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleDeath() {
         if (state.devMode) return;
         if (!state.levelInProgress) return;
+        clearInterval(state.timerId); // MODIFICATION: Stop the timer
         state.levelInProgress = false; 
         state.lives--;
         updateHUD();
@@ -453,7 +455,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
     window.addEventListener('keydown', e => { 
-        // MODIFICATION: Dev mode key changed to 'J'
         if (e.key.toLowerCase() === 'j' && !e.repeat) {
             toggleDevMode();
         }

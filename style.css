@@ -14,12 +14,11 @@ body {
     overflow: hidden;
 }
 
-/* NEW: Wrapper for screen and button */
+/* Wrapper for screen and button */
 #game-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
 }
 
 #screen {
@@ -105,7 +104,15 @@ body {
 #start-button:hover, #help-button:hover, #close-help-button:hover, #external-help-button:hover { transform: translateY(-2px); }
 #start-button:active, #help-button:active, #close-help-button:active, #external-help-button:active { box-shadow: 0 2px #666; transform: translateY(4px); }
 
-/* MODIFICATION: External Help Button now has normal layout flow */
+/* NEW: Styles for the bar below the game screen */
+#controls-bar {
+    width: 90vw;
+    max-width: 960px;
+    display: flex;
+    justify-content: flex-start; /* Aligns items (the button) to the left */
+    padding-top: 15px;
+}
+
 #external-help-button {
     font-size: 0.8em;
     padding: 10px 15px;

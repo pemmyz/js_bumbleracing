@@ -10,7 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- NEW: Wrapper for screen and external button -->
     <div id="game-container">
         <div id="screen">
             <!-- HUD updated for two players -->
@@ -58,14 +57,15 @@
                 <p><strong>Joining:</strong> Player 2 can press the UP ARROW at any time to join the game.</p>
                 <p><strong>Dangers:</strong> Don't touch the cacti (🌵) or fall off the bottom of the world!</p>
                 <p><strong>Lives:</strong> You share a pool of lives. Be careful!</p>
-                <!-- MODIFICATION: Updated dev key from D to J -->
                 <p><strong>Hotkeys:</strong> Press 'H' to toggle this help screen. Press 'J' to toggle Developer Mode (shows hitboxes).</p>
                 <button id="close-help-button">Close</button>
             </div>
         </div>
         
-        <!-- MODIFICATION: Button moved outside the screen div -->
-        <button id="external-help-button">Help (H)</button>
+        <!-- MODIFICATION: Button is now inside a dedicated controls bar for alignment -->
+        <div id="controls-bar">
+            <button id="external-help-button">Help (H)</button>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>

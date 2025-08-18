@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- MODIFICATION: Updated game title -->
     <title>Bee Flower Bee (Co-op)</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,58 +10,61 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="screen">
-        <!-- HUD updated for two players -->
-        <div id="hud">
-            <div id="player-scores">
-                <div class="hud-item" id="p1-score">P1: 0</div>
-                <div class="hud-item hidden" id="p2-score">P2: 0</div>
+    <!-- NEW: Wrapper for screen and external button -->
+    <div id="game-container">
+        <div id="screen">
+            <!-- HUD updated for two players -->
+            <div id="hud">
+                <div id="player-scores">
+                    <div class="hud-item" id="p1-score">P1: 0</div>
+                    <div class="hud-item hidden" id="p2-score">P2: 0</div>
+                </div>
+                <div class="hud-item" id="level">LEVEL: 1</div>
+                <div class="hud-item" id="flowers-left">🌼: 5</div>
+                <div class="hud-item" id="timer">⏱️ 3:00</div>
+                <div class="hud-item" id="lives">LIVES: 🐝🐝🐝</div>
+                <!-- Dev mode indicator -->
+                <div id="dev-mode-indicator" class="hidden">DEV MODE</div>
             </div>
-            <div class="hud-item" id="level">LEVEL: 1</div>
-            <div class="hud-item" id="flowers-left">🌼: 5</div>
-            <div class="hud-item" id="timer">⏱️ 3:00</div>
-            <div class="hud-item" id="lives">LIVES: 🐝🐝🐝</div>
-            <!-- Dev mode indicator -->
-            <div id="dev-mode-indicator" class="hidden">DEV MODE</div>
+            
+            <div id="game-area">
+                <div id="world">
+                    <!-- Game Objects will be added here by JS -->
+                </div>
+            </div>
+
+            <!-- Game Over / Start Screen -->
+            <div id="message-screen">
+                <h1>Bee Flower Bee</h1>
+                <p class="instructions">P1: Use A/D to move, W or Space to Thrust.</p>
+                <p class="instructions">P2: Press the UP ARROW to join the game!</p>
+                <p class="instructions">Collect all 🌼 before time runs out!</p>
+                <p class="instructions">Avoid the thorny 🌵!</p>
+                <div class="button-container">
+                    <button id="start-button">Start Game</button>
+                    <button id="help-button">Help (?)</button>
+                </div>
+            </div>
+
+            <!-- In-Game Message Overlay -->
+            <div id="level-message-screen" class="hidden"></div>
+
+            <!-- Help Screen Overlay -->
+            <div id="help-screen" class="hidden">
+                <h2>How to Play</h2>
+                <p><strong>Objective:</strong> Work together to collect all the flowers (🌼) on each level before the timer runs out.</p>
+                <p><strong>Controls (P1):</strong> A/D to move left/right. W or SPACE to thrust upwards.</p>
+                <p><strong>Controls (P2):</strong> Arrow Keys to move and thrust.</p>
+                <p><strong>Joining:</strong> Player 2 can press the UP ARROW at any time to join the game.</p>
+                <p><strong>Dangers:</strong> Don't touch the cacti (🌵) or fall off the bottom of the world!</p>
+                <p><strong>Lives:</strong> You share a pool of lives. Be careful!</p>
+                <!-- MODIFICATION: Updated dev key from D to J -->
+                <p><strong>Hotkeys:</strong> Press 'H' to toggle this help screen. Press 'J' to toggle Developer Mode (shows hitboxes).</p>
+                <button id="close-help-button">Close</button>
+            </div>
         </div>
         
-        <div id="game-area">
-            <div id="world">
-                <!-- Game Objects will be added here by JS -->
-            </div>
-        </div>
-
-        <!-- Game Over / Start Screen -->
-        <div id="message-screen">
-            <!-- MODIFICATION: Updated game title -->
-            <h1>Bee Flower Bee</h1>
-            <p class="instructions">P1: Use A/D to move, W or Space to Thrust.</p>
-            <p class="instructions">P2: Press the UP ARROW to join the game!</p>
-            <p class="instructions">Collect all 🌼 before time runs out!</p>
-            <p class="instructions">Avoid the thorny 🌵!</p>
-            <div class="button-container">
-                <button id="start-button">Start Game</button>
-                <button id="help-button">Help (?)</button>
-            </div>
-        </div>
-
-        <!-- In-Game Message Overlay -->
-        <div id="level-message-screen" class="hidden"></div>
-
-        <!-- NEW: Help Screen Overlay -->
-        <div id="help-screen" class="hidden">
-            <h2>How to Play</h2>
-            <p><strong>Objective:</strong> Work together to collect all the flowers (🌼) on each level before the timer runs out.</p>
-            <p><strong>Controls (P1):</strong> A/D to move left/right. W or SPACE to thrust upwards.</p>
-            <p><strong>Controls (P2):</strong> Arrow Keys to move and thrust.</p>
-            <p><strong>Joining:</strong> Player 2 can press the UP ARROW at any time to join the game.</p>
-            <p><strong>Dangers:</strong> Don't touch the cacti (🌵) or fall off the bottom of the world!</p>
-            <p><strong>Lives:</strong> You share a pool of lives. Be careful!</p>
-            <p><strong>Hotkeys:</strong> Press 'H' to toggle this help screen. Press 'D' to toggle Developer Mode (shows hitboxes).</p>
-            <button id="close-help-button">Close</button>
-        </div>
-        
-        <!-- NEW: External Help Button -->
+        <!-- MODIFICATION: Button moved outside the screen div -->
         <button id="external-help-button">Help (H)</button>
     </div>
     <script src="script.js"></script>

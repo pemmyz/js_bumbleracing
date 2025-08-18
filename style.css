@@ -14,6 +14,14 @@ body {
     overflow: hidden;
 }
 
+/* NEW: Wrapper for screen and button */
+#game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
 #screen {
     width: 90vw;
     height: 70vw;
@@ -97,15 +105,11 @@ body {
 #start-button:hover, #help-button:hover, #close-help-button:hover, #external-help-button:hover { transform: translateY(-2px); }
 #start-button:active, #help-button:active, #close-help-button:active, #external-help-button:active { box-shadow: 0 2px #666; transform: translateY(4px); }
 
-/* NEW: External Help Button Specific Styles */
+/* MODIFICATION: External Help Button now has normal layout flow */
 #external-help-button {
-    position: absolute;
-    bottom: 10px;
-    left: 20px;
     font-size: 0.8em;
     padding: 10px 15px;
-    margin: 0;
-    z-index: 101; /* Above scanlines */
+    margin: 0; /* Override the shared margin-top */
 }
 
 /* HUD */
@@ -116,7 +120,7 @@ body {
     right: 1.5em;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start; /* MODIFICATION: Align items to top */
+    align-items: flex-start;
     padding: 10px 20px;
     box-sizing: border-box;
     font-size: 1.2em;
@@ -125,11 +129,9 @@ body {
     color: #FFD700;
 }
 
-/* MODIFICATION START: Add color to P2 score */
 #p2-score {
     color: mediumorchid;
 }
-/* MODIFICATION END */
 
 #dev-mode-indicator { color: #ff4757; position: absolute; top: 40px; left: 50%; transform: translateX(-50%); font-size: 0.8em; }
 
@@ -138,13 +140,13 @@ body {
 .game-object { position: absolute; will-change: transform; font-size: 2em; }
 .player { z-index: 5; font-size: 2.5em; transition: filter 0.1s ease-in-out; }
 .player-1-glow { filter: drop-shadow(0 0 10px gold) drop-shadow(0 0 4px gold); }
-.player-2-glow { filter: drop-shadow(0 0 12px mediumorchid) drop-shadow(0 0 5px mediumorchid); } /* UPDATED COLOR */
+.player-2-glow { filter: drop-shadow(0 0 12px mediumorchid) drop-shadow(0 0 5px mediumorchid); }
 
 .platform { font-size: 2.5em; color: #228B22; }
 .flower { z-index: 1; font-size: 2.2em; }
 .thorn { font-size: 2.2em; color: #696969; }
 
-/* NEW: Dev Mode Hitbox Style */
+/* Dev Mode Hitbox Style */
 .hitbox {
     position: absolute;
     border: 1px solid rgba(255, 0, 0, 0.9);

@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const helpButton = document.getElementById('help-button');
     const closeHelpButton = document.getElementById('close-help-button');
     const devIndicator = document.getElementById('dev-mode-indicator');
+    const externalHelpButton = document.getElementById('external-help-button'); // NEW
 
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
@@ -82,11 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function startLevel() {
-        // --- MODIFICATION START ---
-        // 1. Capture the scores from the previous level before resetting everything.
-        // On the very first level, state.players won't exist, so we default to an empty array.
         const oldScores = (state.players || []).map(p => p ? p.score : 0);
-        // --- MODIFICATION END ---
         
         resetLevelState();
         clearDynamicElements();
@@ -99,14 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const worldRect = world.getBoundingClientRect();
         const startY = worldRect.height - 200;
         
-        // --- MODIFICATION START ---
-        // 2. Pass the saved score when creating the player for the new level.
         addPlayer(0, startY, oldScores[0] || 0);
 
         if (state.isTwoPlayer) {
             addPlayer(1, startY, oldScores[1] || 0);
         }
-        // --- MODIFICATION END ---
 
         const startPlatform = { x: worldRect.width / 2 - 80, y: startY + 100, width: 200, height: 20, };
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
@@ -123,24 +117,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- MODIFICATION START ---
-    // 3. Update addPlayer to accept a starting score.
     function addPlayer(playerIndex, startY, score = 0) {
-    // --- MODIFICATION END ---
         const worldRect = world.getBoundingClientRect();
         const player = {
             id: playerIndex + 1,
             el: null,
+            hitboxEl: null, // NEW
             x: worldRect.width / 2 + (playerIndex === 0 ? -40 : 40),
             y: startY,
             vx: 0, vy: 0, width: 40, height: 40,
             lastDirection: -1,
-            // --- MODIFICATION START ---
-            score: score, // Use the passed-in score
-            // --- MODIFICATION END ---
+            score: score,
             controls: playerControls[playerIndex]
         };
         player.el = createGameObject(`player player-${player.id}-glow`, '🐝', player.x, player.y);
+        player.hitboxEl = createHitbox(player.x, player.y, player.width, player.height); // NEW
         state.players[playerIndex] = player;
     }
 
@@ -163,6 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < platformCount; i++) {
             const platform = { x: Math.random() * (worldRect.width - 80), y: Math.random() * (worldRect.height - 250), width: 80, height: 20 };
             platform.el = createGameObject('platform', '🌿', platform.x, platform.y);
+            // Hitbox for platforms isn't strictly needed for gameplay (collision is one-way from top) but useful for dev mode
+            platform.hitboxEl = createHitbox(platform.x, platform.y, platform.width, platform.height);
             state.platforms.push(platform);
             platformsForFlowers.push(platform);
         }
@@ -171,7 +164,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const platform = platformsForFlowers[platformIndex];
             const flowerX = platform.x + 20; const flowerY = platform.y - 30;
             const flowerEl = createGameObject('flower', '🌼', flowerX, flowerY);
-            state.flowers.push({ el: flowerEl, x: flowerX, y: flowerY, width: 35, height: 35 });
+            const flower = { el: flowerEl, x: flowerX, y: flowerY, width: 35, height: 35 }; // NEW: assign to variable
+            flower.hitboxEl = createHitbox(flower.x, flower.y, flower.width, flower.height); // NEW
+            state.flowers.push(flower);
             platformsForFlowers.splice(platformIndex, 1);
             flowerPlaced++;
         }
@@ -193,6 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const pos of thornPositions) {
                 const thorn = { x: pos.x, y: pos.y, width: 40, height: 40, };
                 thorn.el = createGameObject('thorn', '🌵', thorn.x, thorn.y);
+                thorn.hitboxEl = createHitbox(thorn.x, thorn.y, thorn.width, thorn.height); // NEW
                 state.thorns.push(thorn);
             }
         }
@@ -323,7 +319,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- State Changers & Handlers ---
     function collectFlower(flower, index, player) {
-        flower.el.remove(); state.flowers.splice(index, 1);
+        flower.el.remove();
+        if (flower.hitboxEl) flower.hitboxEl.remove(); // NEW: remove hitbox
+        state.flowers.splice(index, 1);
         player.score += 100;
         state.totalScore = state.players.reduce((sum, p) => sum + (p ? p.score : 0), 0); // Recalculate total score
         state.flowersToCollect--;
@@ -334,7 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function nextLevel() {
         state.levelInProgress = false; 
         state.totalScore += Math.max(0, state.timeLeft * 10);
-        // Apply time bonus to each player proportionally to their contribution
         if (state.totalScore > 0) {
             const timeBonus = Math.max(0, state.timeLeft * 10);
             state.players.forEach(p => {
@@ -406,6 +403,9 @@ document.addEventListener('DOMContentLoaded', () => {
         state.players.forEach(player => {
             if (!player || !player.el) return;
             player.el.style.transform = `translate(${player.x}px, ${player.y}px) scaleX(${player.lastDirection})`;
+            if (player.hitboxEl) { // NEW: update hitbox position
+                player.hitboxEl.style.transform = `translate(${player.x}px, ${player.y}px)`;
+            }
         });
     }
 
@@ -422,6 +422,18 @@ document.addEventListener('DOMContentLoaded', () => {
         world.appendChild(el);
         return el;
     }
+    
+    // NEW: Hitbox creation utility
+    function createHitbox(x, y, width, height) {
+        const hitboxEl = document.createElement('div');
+        hitboxEl.className = 'hitbox';
+        if (!state.devMode) hitboxEl.classList.add('hidden');
+        hitboxEl.style.width = `${width}px`;
+        hitboxEl.style.height = `${height}px`;
+        hitboxEl.style.transform = `translate(${x}px, ${y}px)`;
+        world.appendChild(hitboxEl);
+        return hitboxEl;
+    }
 
     function isColliding(rect1, rect2) {
         return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
@@ -433,6 +445,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function toggleDevMode() {
         state.devMode = !state.devMode;
         devIndicator.classList.toggle('hidden', !state.devMode);
+        document.querySelectorAll('.hitbox').forEach(box => { // NEW: toggle all hitboxes
+            box.classList.toggle('hidden', !state.devMode);
+        });
         console.log(`Dev mode ${state.devMode ? 'enabled' : 'disabled'}.`);
         if (state.devMode) {
             console.log('Commands: [N] Next Level');
@@ -441,6 +456,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
     window.addEventListener('keydown', e => { 
+        // NEW: Toggle dev mode with 'D' key, but don't prevent movement.
+        if (e.key.toLowerCase() === 'd' && !e.repeat) {
+            toggleDevMode();
+        }
+
         if (e.key in keys) { e.preventDefault(); keys[e.key] = true; }
 
         if (e.key === 'ArrowUp' && !state.isTwoPlayer && state.gameLoopId) {
@@ -451,14 +471,11 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Player 2 has joined the game!");
         }
 
-        if (e.key.toLowerCase() === 'h' || e.key === '?') {
+        // MODIFIED: 'H' key toggles help screen
+        if (e.key.toLowerCase() === 'h') {
             if (messageScreen.classList.contains('hidden')) {
                helpScreen.classList.toggle('hidden');
             }
-        }
-        
-        if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-            toggleDevMode();
         }
 
         if (state.devMode && state.levelInProgress) {
@@ -474,4 +491,5 @@ document.addEventListener('DOMContentLoaded', () => {
     startButton.addEventListener('click', startGame);
     helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
+    externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden')); // NEW
 });

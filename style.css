@@ -90,12 +90,23 @@ body {
 
 /* Buttons */
 .button-container { display: flex; gap: 20px; }
-#start-button, #help-button, #close-help-button { 
+#start-button, #help-button, #close-help-button, #external-help-button { 
     margin-top: 30px; padding: 15px 30px; font-family: var(--retro-font); font-size: 1em; background-color: #4CAF50; color: white; border: 3px solid white; cursor: pointer; box-shadow: 0 5px #999; 
 }
-#help-button { background-color: #008CBA; }
-#start-button:hover, #help-button:hover, #close-help-button:hover { transform: translateY(-2px); }
-#start-button:active, #help-button:active, #close-help-button:active { box-shadow: 0 2px #666; transform: translateY(4px); }
+#help-button, #external-help-button { background-color: #008CBA; }
+#start-button:hover, #help-button:hover, #close-help-button:hover, #external-help-button:hover { transform: translateY(-2px); }
+#start-button:active, #help-button:active, #close-help-button:active, #external-help-button:active { box-shadow: 0 2px #666; transform: translateY(4px); }
+
+/* NEW: External Help Button Specific Styles */
+#external-help-button {
+    position: absolute;
+    bottom: 10px;
+    left: 20px;
+    font-size: 0.8em;
+    padding: 10px 15px;
+    margin: 0;
+    z-index: 101; /* Above scanlines */
+}
 
 /* HUD */
 #hud {
@@ -132,6 +143,17 @@ body {
 .platform { font-size: 2.5em; color: #228B22; }
 .flower { z-index: 1; font-size: 2.2em; }
 .thorn { font-size: 2.2em; color: #696969; }
+
+/* NEW: Dev Mode Hitbox Style */
+.hitbox {
+    position: absolute;
+    border: 1px solid rgba(255, 0, 0, 0.9);
+    background-color: rgba(255, 0, 0, 0.1);
+    box-sizing: border-box;
+    pointer-events: none;
+    z-index: 99;
+}
+
 
 /* Clouds */
 .cloud-container { position: absolute; pointer-events: none; filter: blur(1px); }

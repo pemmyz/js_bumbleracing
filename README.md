@@ -7,6 +7,8 @@ Collect all the 🌼 flowers before the timer runs out, bounce off leaves 🌿, 
 
 Built with **HTML5, CSS3, and vanilla JavaScript** — no external libraries required.  
 
+![screenshot](screenshots/game_1.png)
+
 ---
 
 ## 🎮 Gameplay

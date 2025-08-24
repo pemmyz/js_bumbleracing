@@ -146,51 +146,131 @@ document.addEventListener('DOMContentLoaded', () => {
         return { flowers: Math.min(5 + level * 2, 50), platforms: Math.min(10 + level * 2, 40), thorns: Math.min(5 + Math.floor(level * 1.5), 45) };
     }
 
+    /**
+     * MODIFIED: This function has been completely rewritten to prevent objects
+     * from spawning inside or too close to each other, and to keep flowers
+     * within the playable area.
+     */
     function generateLevel(platformCount, thornCount, flowerCount) {
         const worldRect = world.getBoundingClientRect();
-        let flowerPlaced = 0;
+        const allGeneratedObjects = []; // Master list to check for collisions
+        const MAX_TRIES = 50; // Prevents infinite loops on crowded levels
         let platformsForFlowers = [];
+
+        // --- Platform Generation ---
         for (let i = 0; i < platformCount; i++) {
-            const platform = { x: Math.random() * (worldRect.width - 80), y: Math.random() * (worldRect.height - 250), width: 80, height: 20 };
-            platform.el = createGameObject('platform', '🌿', platform.x, platform.y);
-            platform.hitboxEl = createHitbox(platform.x, platform.y, platform.width, platform.height);
-            state.platforms.push(platform);
-            platformsForFlowers.push(platform);
+            let tries = 0;
+            let placed = false;
+            while (!placed && tries < MAX_TRIES) {
+                const pWidth = 80;
+                const pHeight = 20;
+                const potentialX = Math.random() * (worldRect.width - pWidth);
+                const potentialY = Math.random() * (worldRect.height - 400) + 50; // Keep away from top and player start
+
+                const newRect = { x: potentialX, y: potentialY, width: pWidth, height: pHeight };
+                let isValidPosition = true;
+
+                for (const obj of allGeneratedObjects) {
+                    // Check collision with a large padding to space platforms out
+                    const paddedObj = {x: obj.x - 30, y: obj.y - 30, width: obj.width + 60, height: obj.height + 60};
+                    if (isColliding(newRect, paddedObj)) {
+                        isValidPosition = false;
+                        break;
+                    }
+                }
+
+                if (isValidPosition) {
+                    const platform = { ...newRect };
+                    platform.el = createGameObject('platform', '🌿', platform.x, platform.y);
+                    platform.hitboxEl = createHitbox(platform.x, platform.y, platform.width, platform.height);
+                    state.platforms.push(platform);
+                    platformsForFlowers.push(platform);
+                    allGeneratedObjects.push(platform);
+                    placed = true;
+                }
+                tries++;
+            }
         }
-        while(flowerPlaced < flowerCount && platformsForFlowers.length > 0) {
+
+        // --- Flower Generation ---
+        let flowerPlaced = 0;
+        while (flowerPlaced < flowerCount && platformsForFlowers.length > 0) {
             const platformIndex = Math.floor(Math.random() * platformsForFlowers.length);
             const platform = platformsForFlowers[platformIndex];
-            const flowerX = platform.x + 20; const flowerY = platform.y - 30;
-            const flowerEl = createGameObject('flower', '🌼', flowerX, flowerY);
-            const flower = { el: flowerEl, x: flowerX, y: flowerY, width: 35, height: 35 };
+            
+            const fWidth = 35;
+            const fHeight = 35;
+            const flowerX = platform.x + (platform.width / 2) - (fWidth / 2); // Center on platform
+            const flowerY = platform.y - fHeight;
+
+            // Check if flower is too close to the top edge
+            if (flowerY < 10) {
+                platformsForFlowers.splice(platformIndex, 1); // Remove this platform as a candidate
+                continue; // Try a different platform
+            }
+
+            const flower = { x: flowerX, y: flowerY, width: fWidth, height: fHeight };
+            flower.el = createGameObject('flower', '🌼', flowerX, flowerY);
             flower.hitboxEl = createHitbox(flower.x, flower.y, flower.width, flower.height);
             state.flowers.push(flower);
-            platformsForFlowers.splice(platformIndex, 1);
+            allGeneratedObjects.push(flower);
+            platformsForFlowers.splice(platformIndex, 1); // Don't place another flower here
             flowerPlaced++;
         }
-        
+
+        // --- Thorn Generation ---
         const thornGroupCount = Math.floor(thornCount / 3);
         for (let i = 0; i < thornGroupCount; i++) {
-            const clusterCenterX = Math.random() * (worldRect.width - 120) + 60;
-            const clusterCenterY = Math.random() * (worldRect.height - 350);
-            const playerStartX = worldRect.width / 2;
-            const playerStartY = worldRect.height - 200;
-            if (Math.abs(clusterCenterX - playerStartX) < 200 && Math.abs(clusterCenterY - playerStartY) < 200) {
-                i--; continue;
-            }
-            const thornPositions = [
-                { x: clusterCenterX, y: clusterCenterY },
-                { x: clusterCenterX - 25 + (Math.random() * 10 - 5), y: clusterCenterY + 5 + (Math.random() * 10 - 5) },
-                { x: clusterCenterX + 25 + (Math.random() * 10 - 5), y: clusterCenterY + 5 + (Math.random() * 10 - 5) }
-            ];
-            for (const pos of thornPositions) {
-                const thorn = { x: pos.x, y: pos.y, width: 40, height: 40, };
-                thorn.el = createGameObject('thorn', '🌵', thorn.x, thorn.y);
-                thorn.hitboxEl = createHitbox(thorn.x, thorn.y, thorn.width, thorn.height);
-                state.thorns.push(thorn);
+            let tries = 0;
+            let placed = false;
+            while (!placed && tries < MAX_TRIES) {
+                const tWidth = 40;
+                const tHeight = 40;
+                const clusterCenterX = Math.random() * (worldRect.width - 120) + 60;
+                const clusterCenterY = Math.random() * (worldRect.height - 400) + 50;
+
+                const playerStartX = worldRect.width / 2;
+                const playerStartY = worldRect.height - 200;
+                if (Math.abs(clusterCenterX - playerStartX) < 200 && Math.abs(clusterCenterY - playerStartY) < 200) {
+                    tries++;
+                    continue; // Too close to player start, try new coordinates
+                }
+
+                const thornPositions = [
+                    { x: clusterCenterX, y: clusterCenterY },
+                    { x: clusterCenterX - 25 + (Math.random() * 10 - 5), y: clusterCenterY + 15 + (Math.random() * 10 - 5) },
+                    { x: clusterCenterX + 25 + (Math.random() * 10 - 5), y: clusterCenterY + 15 + (Math.random() * 10 - 5) }
+                ];
+
+                let isClusterValid = true;
+                for (const pos of thornPositions) {
+                    const newRect = { x: pos.x, y: pos.y, width: tWidth, height: tHeight };
+                    for (const obj of allGeneratedObjects) {
+                        // Check collision with padding to avoid placing on flowers etc.
+                        const paddedObj = {x: obj.x - 15, y: obj.y - 15, width: obj.width + 30, height: obj.height + 30};
+                        if (isColliding(newRect, paddedObj)) {
+                            isClusterValid = false;
+                            break;
+                        }
+                    }
+                    if (!isClusterValid) break;
+                }
+
+                if (isClusterValid) {
+                    for (const pos of thornPositions) {
+                        const thorn = { x: pos.x, y: pos.y, width: tWidth, height: tHeight };
+                        thorn.el = createGameObject('thorn', '🌵', thorn.x, thorn.y);
+                        thorn.hitboxEl = createHitbox(thorn.x, thorn.y, thorn.width, thorn.height);
+                        state.thorns.push(thorn);
+                        allGeneratedObjects.push(thorn);
+                    }
+                    placed = true;
+                }
+                tries++;
             }
         }
     }
+
 
     function handleCloudGeneration() {
         state.frame++;
@@ -328,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function nextLevel() {
-        clearInterval(state.timerId); // MODIFICATION: Stop the timer
+        clearInterval(state.timerId); 
         state.levelInProgress = false; 
         state.totalScore += Math.max(0, state.timeLeft * 10);
         if (state.totalScore > 0) {
@@ -349,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleDeath() {
         if (state.devMode) return;
         if (!state.levelInProgress) return;
-        clearInterval(state.timerId); // MODIFICATION: Stop the timer
+        clearInterval(state.timerId);
         state.levelInProgress = false; 
         state.lives--;
         updateHUD();

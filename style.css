@@ -146,9 +146,38 @@ body {
     color: #FFD700;
 }
 
+/* NEW: Player Info Wrapper */
+#player-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#player-scores {
+    display: flex;
+    gap: 1.2em;
+}
+
 #p2-score {
     color: mediumorchid;
 }
+
+/* NEW: Gamepad Status Styles */
+#gamepad-status {
+    font-size: 0.7em;
+    display: flex;
+    gap: 1.2em;
+    padding-left: 2px;
+}
+
+#p1-gp-status {
+    color: gold;
+}
+
+#p2-gp-status {
+    color: mediumorchid;
+}
+
 
 #dev-mode-indicator { color: #ff4757; position: absolute; top: 40px; left: 50%; transform: translateX(-50%); font-size: 0.8em; }
 

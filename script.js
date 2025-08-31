@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeHelpButton = document.getElementById('close-help-button');
     const devIndicator = document.getElementById('dev-mode-indicator');
     const externalHelpButton = document.getElementById('external-help-button');
+    const p1GpStatusEl = document.getElementById('p1-gp-status'); // NEW
+    const p2GpStatusEl = document.getElementById('p2-gp-status'); // NEW
 
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
@@ -27,8 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     // --- NEW: GAMEPAD STATE ---
+    let playerGamepadAssignments = { p1: null, p2: null };
+    const gamepadAssignmentCooldown = {}; // Prevents rapid assignment on button hold
     const gamepads = {};
-    const prevButtonStates = [{thrust: false}, {thrust: false}]; // Used to detect a single button press for joining
 
     // --- Cloud Class ---
     class Cloud {
@@ -69,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Game Initialization ---
     function resetGame() {
         state = { level: 1, totalScore: 0, lives: 3, gameLoopId: null, timerId: null, gameOver: false, isTwoPlayer: false, devMode: false };
+        playerGamepadAssignments = { p1: null, p2: null }; // NEW: Reset assignments
     }
 
     function resetLevelState() {
@@ -82,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetGame();
         messageScreen.classList.add('hidden');
         p2ScoreEl.classList.add('hidden');
+        p2GpStatusEl.classList.add('hidden'); // NEW
         startLevel();
     }
     
@@ -111,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateCamera();
         updateHUD();
+        updateGamepadStatusHUD(); // NEW
         showLevelMessage(`Level ${state.level}`, 1500, () => {
             state.levelInProgress = true;
             if (state.timerId) clearInterval(state.timerId);
@@ -138,18 +144,16 @@ document.addEventListener('DOMContentLoaded', () => {
         state.players[playerIndex] = player;
     }
 
-    // --- Level Generation & Clouds ---
+    // --- Level Generation & Clouds (No changes in this section) ---
     function prepopulateClouds(count) {
         const worldRect = world.getBoundingClientRect();
         for (let i = 0; i < count; i++) {
             state.clouds.push(new Cloud(Math.random() * worldRect.width, Math.random() * worldRect.height, Math.random() < 0.3));
         }
     }
-
     function getLevelConfig(level) {
         return { flowers: Math.min(5 + level * 2, 50), platforms: Math.min(10 + level * 2, 40), thorns: Math.min(5 + Math.floor(level * 1.5), 45) };
     }
-
     function generateLevel(platformCount, thornCount, flowerCount) {
         const worldRect = world.getBoundingClientRect();
         const allGeneratedObjects = [];
@@ -250,7 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-
     function handleCloudGeneration() {
         state.frame++;
         const worldRect = world.getBoundingClientRect();
@@ -261,7 +264,6 @@ document.addEventListener('DOMContentLoaded', () => {
             state.clouds.push(new Cloud(worldRect.width + 200, Math.random() * worldRect.height, true));
         }
     }
-
     function updateAndDrawClouds() {
         for (let i = state.clouds.length - 1; i >= 0; i--) {
             const cloud = state.clouds[i];
@@ -280,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
             handleCloudGeneration();
             updateAndDrawClouds();
             handleKeyboardInput();
-            handleGamepadInput(); // NEW: Handle gamepad input
+            handleGamepadInput(); // UPDATED
             updatePlayers();
             handleCollisions();
         }
@@ -299,63 +301,104 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NEW: GAMEPAD INPUT HANDLER ---
-    function handleGamepadInput() {
-        const polledPads = navigator.getGamepads ? navigator.getGamepads() : [];
-        if (!polledPads) return;
+    // --- NEW / REWRITTEN: GAMEPAD INPUT HANDLER ---
+    function setAssignmentCooldown(gamepadIndex) {
+        gamepadAssignmentCooldown[gamepadIndex] = true;
+        setTimeout(() => {
+            delete gamepadAssignmentCooldown[gamepadIndex];
+        }, 1000); // 1-second cooldown
+    }
 
-        // Gamepad Button/Axis Constants
+    function applyGamepadControlsToPlayer(player, pad) {
         const DEADZONE = 0.2;
         const THRUST_BUTTON_INDEX = 0;   // 'A' on Xbox, 'X' on PS
         const ALT_THRUST_BUTTON_INDEX = 7; // Right Trigger
         const DPAD_LEFT_INDEX = 14;
         const DPAD_RIGHT_INDEX = 15;
 
-        // --- Player 2 Join Logic ---
-        if (!state.isTwoPlayer && state.gameLoopId) {
-            const pad2 = polledPads[1];
-            if (pad2) {
-                const thrustPressed = pad2.buttons[THRUST_BUTTON_INDEX].pressed || pad2.buttons[ALT_THRUST_BUTTON_INDEX].value > 0.1;
-                const prevThrustPressed = prevButtonStates[1].thrust;
+        const stickX = pad.axes[0];
+        const dpadLeft = pad.buttons[DPAD_LEFT_INDEX].pressed;
+        const dpadRight = pad.buttons[DPAD_RIGHT_INDEX].pressed;
+        const thrust = pad.buttons[THRUST_BUTTON_INDEX].pressed || pad.buttons[ALT_THRUST_BUTTON_INDEX].value > 0.1;
 
-                if (thrustPressed && !prevThrustPressed) {
-                    state.isTwoPlayer = true;
-                    addPlayer(1, state.players[0].y, 0);
-                    p2ScoreEl.classList.remove('hidden');
-                    console.log("Player 2 (Gamepad) has joined the game!");
-                }
-                prevButtonStates[1].thrust = thrustPressed;
-            }
+        // Gamepad overrides horizontal movement if stick or D-pad is active
+        if (stickX < -DEADZONE || dpadLeft) {
+            player.vx = -gameConstants.PLAYER_SPEED;
+            player.lastDirection = 1;
+        } else if (stickX > DEADZONE || dpadRight) {
+            player.vx = gameConstants.PLAYER_SPEED;
+            player.lastDirection = -1;
         }
-
-        // --- Player Action Logic ---
-        state.players.forEach((player, i) => {
-            if (!player) return;
-            const pad = polledPads[i];
-            if (!pad) return;
-
-            const stickX = pad.axes[0];
-            const dpadLeft = pad.buttons[DPAD_LEFT_INDEX].pressed;
-            const dpadRight = pad.buttons[DPAD_RIGHT_INDEX].pressed;
-            const thrust = pad.buttons[THRUST_BUTTON_INDEX].pressed || pad.buttons[ALT_THRUST_BUTTON_INDEX].value > 0.1;
-
-            // Gamepad overrides horizontal movement if stick or D-pad is active
-            if (stickX < -DEADZONE || dpadLeft) {
-                player.vx = -gameConstants.PLAYER_SPEED;
-                player.lastDirection = 1;
-            } else if (stickX > DEADZONE || dpadRight) {
-                player.vx = gameConstants.PLAYER_SPEED;
-                player.lastDirection = -1;
-            }
-            
-            // Gamepad adds thrust
-            if (thrust) {
-                player.vy -= gameConstants.THRUST;
-            }
-        });
+        
+        // Gamepad adds thrust
+        if (thrust) {
+            player.vy -= gameConstants.THRUST;
+        }
     }
 
+    function handleGamepadInput() {
+        const polledPads = navigator.getGamepads ? navigator.getGamepads() : [];
+        if (!polledPads) return;
 
+        // --- Part 1: Gamepad Assignment and Player 2 Join Logic ---
+        const FACE_BUTTON_INDICES = [0, 1, 2, 3]; // A, B, X, Y on standard controllers
+
+        for (let i = 0; i < polledPads.length; i++) {
+            const pad = polledPads[i];
+            if (!pad || gamepadAssignmentCooldown[i]) continue;
+
+            const isAlreadyAssigned = (playerGamepadAssignments.p1 === i || playerGamepadAssignments.p2 === i);
+            const faceButtonPressed = FACE_BUTTON_INDICES.some(index => pad.buttons[index].pressed);
+
+            if (faceButtonPressed && !isAlreadyAssigned) {
+                if (playerGamepadAssignments.p1 === null) {
+                    playerGamepadAssignments.p1 = i;
+                    console.log(`Gamepad ${i} assigned to Player 1.`);
+                    updateGamepadStatusHUD();
+                    setAssignmentCooldown(i);
+                } else if (playerGamepadAssignments.p2 === null) {
+                    if (!state.isTwoPlayer && state.gameLoopId) {
+                        state.isTwoPlayer = true;
+                        addPlayer(1, state.players[0].y, 0);
+                        p2ScoreEl.classList.remove('hidden');
+                        p2GpStatusEl.classList.remove('hidden');
+                        console.log("Player 2 (Gamepad) has joined the game!");
+                    }
+                    playerGamepadAssignments.p2 = i;
+                    console.log(`Gamepad ${i} assigned to Player 2.`);
+                    updateGamepadStatusHUD();
+                    setAssignmentCooldown(i);
+                }
+            }
+        }
+        
+        // --- Part 2: Player Action Logic ---
+        // Player 1 Control Logic
+        if (playerGamepadAssignments.p1 !== null && state.players[0]) {
+            const pad1 = polledPads[playerGamepadAssignments.p1];
+            if (pad1) {
+                applyGamepadControlsToPlayer(state.players[0], pad1);
+            } else { // Handle disconnection
+                console.log(`P1 Gamepad (Index ${playerGamepadAssignments.p1}) disconnected.`);
+                playerGamepadAssignments.p1 = null;
+                updateGamepadStatusHUD();
+            }
+        }
+        
+        // Player 2 Control Logic
+        if (playerGamepadAssignments.p2 !== null && state.players[1]) {
+            const pad2 = polledPads[playerGamepadAssignments.p2];
+            if (pad2) {
+                applyGamepadControlsToPlayer(state.players[1], pad2);
+            } else { // Handle disconnection
+                console.log(`P2 Gamepad (Index ${playerGamepadAssignments.p2}) disconnected.`);
+                playerGamepadAssignments.p2 = null;
+                updateGamepadStatusHUD();
+            }
+        }
+    }
+
+    // --- Player & Camera Updates (No changes in this section) ---
     function updatePlayers() {
         const worldRect = world.getBoundingClientRect();
         const screenHeight = gameArea.clientHeight;
@@ -401,7 +444,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (p.y + p.height > worldRect.height) handleDeath();
         });
     }
-    
     function updateCamera() {
         const gameRect = gameArea.getBoundingClientRect();
         const worldRect = world.getBoundingClientRect();
@@ -417,7 +459,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.cameraY = targetCameraY;
         gameArea.scrollTop = state.cameraY;
     }
-
     function handleCollisions() {
         state.players.forEach(p => {
             if (!p) return;
@@ -431,8 +472,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
-    // --- State Changers & Handlers ---
+
+    // --- State Changers & Handlers (No changes in this section) ---
     function collectFlower(flower, index, player) {
         flower.el.remove();
         if (flower.hitboxEl) flower.hitboxEl.remove();
@@ -443,7 +484,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateHUD();
         if (state.flowersToCollect <= 0) { nextLevel(); }
     }
-
     function nextLevel() {
         clearInterval(state.timerId); 
         state.levelInProgress = false; 
@@ -462,7 +502,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.level % 3 === 0) state.lives++;
         showLevelMessage("Level Complete!", 2000, startLevel);
     }
-
     function handleDeath() {
         if (state.devMode) return;
         if (!state.levelInProgress) return;
@@ -476,7 +515,6 @@ document.addEventListener('DOMContentLoaded', () => {
             showLevelMessage("Try Again", 2000, startLevel);
         }
     }
-
     function endGame() {
         state.gameOver = true; 
         clearInterval(state.timerId); 
@@ -497,7 +535,6 @@ document.addEventListener('DOMContentLoaded', () => {
         startButton.textContent = 'Play Again'; 
         messageScreen.classList.remove('hidden');
     }
-
     function updateTimer() {
         if (state.devMode) return;
         if (state.levelInProgress) { state.timeLeft--; updateHUD(); if (state.timeLeft <= 0) handleDeath(); }
@@ -515,6 +552,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const minutes = Math.floor(state.timeLeft / 60); const seconds = state.timeLeft % 60;
         timerEl.textContent = `⏱️ ${minutes}:${String(seconds).padStart(2, '0')}`;
     }
+
+    // NEW: Function to update gamepad status display
+    function updateGamepadStatusHUD() {
+        p1GpStatusEl.textContent = playerGamepadAssignments.p1 !== null ? `P1: GP${playerGamepadAssignments.p1}` : 'P1: GP?';
+    
+        if (state.isTwoPlayer) {
+            p2GpStatusEl.classList.remove('hidden');
+            p2GpStatusEl.textContent = playerGamepadAssignments.p2 !== null ? `P2: GP${playerGamepadAssignments.p2}` : 'P2: GP?';
+        } else {
+            p2GpStatusEl.classList.add('hidden');
+        }
+    }
     
     function drawPlayers() {
         state.players.forEach(player => {
@@ -525,13 +574,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
     function showLevelMessage(text, duration, callback) {
         levelMessageScreen.textContent = text; levelMessageScreen.classList.remove('hidden');
         setTimeout(() => { levelMessageScreen.classList.add('hidden'); if (callback) callback(); }, duration);
     }
     
-    // --- Utility Functions ---
+    // --- Utility Functions (No changes in this section) ---
     function createGameObject(className, emoji, x, y) {
         const el = document.createElement('div');
         el.className = `game-object ${className}`; el.textContent = emoji;
@@ -539,7 +587,6 @@ document.addEventListener('DOMContentLoaded', () => {
         world.appendChild(el);
         return el;
     }
-    
     function createHitbox(x, y, width, height) {
         const hitboxEl = document.createElement('div');
         hitboxEl.className = 'hitbox';
@@ -550,14 +597,12 @@ document.addEventListener('DOMContentLoaded', () => {
         world.appendChild(hitboxEl);
         return hitboxEl;
     }
-
     function isColliding(rect1, rect2) {
         return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
     }
-    
     function clearDynamicElements() { world.innerHTML = ''; }
 
-    // --- Dev Mode ---
+    // --- Dev Mode (No changes in this section) ---
     function toggleDevMode() {
         state.devMode = !state.devMode;
         devIndicator.classList.toggle('hidden', !state.devMode);
@@ -584,6 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.isTwoPlayer = true;
             addPlayer(1, state.players[0].y, 0);
             p2ScoreEl.classList.remove('hidden');
+            p2GpStatusEl.classList.remove('hidden'); // NEW
             console.log("Player 2 (Keyboard) has joined the game!");
         }
 
@@ -600,10 +646,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-
     window.addEventListener('keyup', e => { if (e.key in keys) { e.preventDefault(); keys[e.key] = false; } });
     
-    // --- NEW: GAMEPAD CONNECTION LISTENERS ---
+    // --- GAMEPAD CONNECTION LISTENERS ---
     window.addEventListener("gamepadconnected", e => {
         console.log(`Gamepad connected at index ${e.gamepad.index}: ${e.gamepad.id}.`);
         gamepads[e.gamepad.index] = e.gamepad;
@@ -611,6 +656,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener("gamepaddisconnected", e => {
         console.log(`Gamepad disconnected from index ${e.gamepad.index}: ${e.gamepad.id}.`);
         delete gamepads[e.gamepad.index];
+        // NEW: Check if the disconnected pad was assigned and reset if it was
+        if (playerGamepadAssignments.p1 === e.gamepad.index) {
+            playerGamepadAssignments.p1 = null;
+            updateGamepadStatusHUD();
+        }
+        if (playerGamepadAssignments.p2 === e.gamepad.index) {
+            playerGamepadAssignments.p2 = null;
+            updateGamepadStatusHUD();
+        }
     });
 
     startButton.addEventListener('click', startGame);

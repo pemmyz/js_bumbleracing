@@ -12,11 +12,17 @@
 <body>
     <div id="game-container">
         <div id="screen">
-            <!-- HUD updated for two players -->
+            <!-- HUD updated for two players and gamepad status -->
             <div id="hud">
-                <div id="player-scores">
-                    <div class="hud-item" id="p1-score">P1: 0</div>
-                    <div class="hud-item hidden" id="p2-score">P2: 0</div>
+                <div id="player-info">
+                    <div id="player-scores">
+                        <div class="hud-item" id="p1-score">P1: 0</div>
+                        <div class="hud-item hidden" id="p2-score">P2: 0</div>
+                    </div>
+                    <div id="gamepad-status" class="hud-item">
+                        <span id="p1-gp-status">P1: GP?</span>
+                        <span id="p2-gp-status" class="hidden">P2: GP?</span>
+                    </div>
                 </div>
                 <div class="hud-item" id="level">LEVEL: 1</div>
                 <div class="hud-item" id="flowers-left">🌼: 5</div>
@@ -54,7 +60,7 @@
                 <p><strong>Objective:</strong> Work together to collect all the flowers (🌼) on each level before the timer runs out.</p>
                 <p><strong>P1 Controls:</strong> A/D to move, W/SPACE to thrust. <br><strong>Gamepad:</strong> D-Pad/Left Stick to move, 'A' Button/Right Trigger to thrust.</p>
                 <p><strong>P2 Controls:</strong> Arrow Keys to move and thrust. <br><strong>Gamepad:</strong> Same as Player 1, on a second controller.</p>
-                <p><strong>Joining:</strong> Player 2 can press UP ARROW (keyboard) or the 'A' Button (gamepad) to join.</p>
+                <p><strong>Joining:</strong> Player 2 can press UP ARROW (keyboard) or a face button (A,B,X,Y) on an unassigned gamepad to join.</p>
                 <p><strong>Dangers:</strong> Don't touch the cacti (🌵) or fall off the bottom of the world!</p>
                 <p><strong>Lives:</strong> You share a pool of lives. Be careful!</p>
                 <p><strong>Hotkeys:</strong> Press 'H' to toggle this help screen. Press 'J' to toggle Developer Mode (shows hitboxes).</p>

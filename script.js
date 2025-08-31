@@ -25,7 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
         { up: ['w', ' '], left: 'a', right: 'd' },
         { up: ['ArrowUp'], left: 'ArrowLeft', right: 'ArrowRight' }
     ];
-    
+
+    // --- NEW: GAMEPAD STATE ---
+    const gamepads = {};
+    const prevButtonStates = [{thrust: false}, {thrust: false}]; // Used to detect a single button press for joining
+
     // --- Cloud Class ---
     class Cloud {
         constructor(x, y, isThunder = false) {
@@ -146,18 +150,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return { flowers: Math.min(5 + level * 2, 50), platforms: Math.min(10 + level * 2, 40), thorns: Math.min(5 + Math.floor(level * 1.5), 45) };
     }
 
-    /**
-     * MODIFIED: This function has been completely rewritten to prevent objects
-     * from spawning inside or too close to each other, and to keep flowers
-     * within the playable area.
-     */
     function generateLevel(platformCount, thornCount, flowerCount) {
         const worldRect = world.getBoundingClientRect();
-        const allGeneratedObjects = []; // Master list to check for collisions
-        const MAX_TRIES = 50; // Prevents infinite loops on crowded levels
+        const allGeneratedObjects = [];
+        const MAX_TRIES = 50;
         let platformsForFlowers = [];
-
-        // --- Platform Generation ---
         for (let i = 0; i < platformCount; i++) {
             let tries = 0;
             let placed = false;
@@ -165,20 +162,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pWidth = 80;
                 const pHeight = 20;
                 const potentialX = Math.random() * (worldRect.width - pWidth);
-                const potentialY = Math.random() * (worldRect.height - 400) + 50; // Keep away from top and player start
-
+                const potentialY = Math.random() * (worldRect.height - 400) + 50;
                 const newRect = { x: potentialX, y: potentialY, width: pWidth, height: pHeight };
                 let isValidPosition = true;
-
                 for (const obj of allGeneratedObjects) {
-                    // Check collision with a large padding to space platforms out
                     const paddedObj = {x: obj.x - 30, y: obj.y - 30, width: obj.width + 60, height: obj.height + 60};
                     if (isColliding(newRect, paddedObj)) {
                         isValidPosition = false;
                         break;
                     }
                 }
-
                 if (isValidPosition) {
                     const platform = { ...newRect };
                     platform.el = createGameObject('platform', '🌿', platform.x, platform.y);
@@ -191,34 +184,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 tries++;
             }
         }
-
-        // --- Flower Generation ---
         let flowerPlaced = 0;
         while (flowerPlaced < flowerCount && platformsForFlowers.length > 0) {
             const platformIndex = Math.floor(Math.random() * platformsForFlowers.length);
             const platform = platformsForFlowers[platformIndex];
-            
             const fWidth = 35;
             const fHeight = 35;
-            const flowerX = platform.x + (platform.width / 2) - (fWidth / 2); // Center on platform
+            const flowerX = platform.x + (platform.width / 2) - (fWidth / 2);
             const flowerY = platform.y - fHeight;
-
-            // Check if flower is too close to the top edge
             if (flowerY < 10) {
-                platformsForFlowers.splice(platformIndex, 1); // Remove this platform as a candidate
-                continue; // Try a different platform
+                platformsForFlowers.splice(platformIndex, 1);
+                continue;
             }
-
             const flower = { x: flowerX, y: flowerY, width: fWidth, height: fHeight };
             flower.el = createGameObject('flower', '🌼', flowerX, flowerY);
             flower.hitboxEl = createHitbox(flower.x, flower.y, flower.width, flower.height);
             state.flowers.push(flower);
             allGeneratedObjects.push(flower);
-            platformsForFlowers.splice(platformIndex, 1); // Don't place another flower here
+            platformsForFlowers.splice(platformIndex, 1);
             flowerPlaced++;
         }
-
-        // --- Thorn Generation ---
         const thornGroupCount = Math.floor(thornCount / 3);
         for (let i = 0; i < thornGroupCount; i++) {
             let tries = 0;
@@ -228,25 +213,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tHeight = 40;
                 const clusterCenterX = Math.random() * (worldRect.width - 120) + 60;
                 const clusterCenterY = Math.random() * (worldRect.height - 400) + 50;
-
                 const playerStartX = worldRect.width / 2;
                 const playerStartY = worldRect.height - 200;
                 if (Math.abs(clusterCenterX - playerStartX) < 200 && Math.abs(clusterCenterY - playerStartY) < 200) {
                     tries++;
-                    continue; // Too close to player start, try new coordinates
+                    continue;
                 }
-
                 const thornPositions = [
                     { x: clusterCenterX, y: clusterCenterY },
                     { x: clusterCenterX - 25 + (Math.random() * 10 - 5), y: clusterCenterY + 15 + (Math.random() * 10 - 5) },
                     { x: clusterCenterX + 25 + (Math.random() * 10 - 5), y: clusterCenterY + 15 + (Math.random() * 10 - 5) }
                 ];
-
                 let isClusterValid = true;
                 for (const pos of thornPositions) {
                     const newRect = { x: pos.x, y: pos.y, width: tWidth, height: tHeight };
                     for (const obj of allGeneratedObjects) {
-                        // Check collision with padding to avoid placing on flowers etc.
                         const paddedObj = {x: obj.x - 15, y: obj.y - 15, width: obj.width + 30, height: obj.height + 30};
                         if (isColliding(newRect, paddedObj)) {
                             isClusterValid = false;
@@ -255,7 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (!isClusterValid) break;
                 }
-
                 if (isClusterValid) {
                     for (const pos of thornPositions) {
                         const thorn = { x: pos.x, y: pos.y, width: tWidth, height: tHeight };
@@ -270,7 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-
 
     function handleCloudGeneration() {
         state.frame++;
@@ -300,7 +279,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if(state.levelInProgress){
             handleCloudGeneration();
             updateAndDrawClouds();
-            handleInput();
+            handleKeyboardInput();
+            handleGamepadInput(); // NEW: Handle gamepad input
             updatePlayers();
             handleCollisions();
         }
@@ -309,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.gameLoopId = requestAnimationFrame(gameLoop);
     }
 
-    function handleInput() {
+    function handleKeyboardInput() {
         state.players.forEach(player => {
             if (!player) return;
             player.vx = 0;
@@ -318,6 +298,63 @@ document.addEventListener('DOMContentLoaded', () => {
             if (player.controls.up.some(key => keys[key])) { player.vy -= gameConstants.THRUST; }
         });
     }
+
+    // --- NEW: GAMEPAD INPUT HANDLER ---
+    function handleGamepadInput() {
+        const polledPads = navigator.getGamepads ? navigator.getGamepads() : [];
+        if (!polledPads) return;
+
+        // Gamepad Button/Axis Constants
+        const DEADZONE = 0.2;
+        const THRUST_BUTTON_INDEX = 0;   // 'A' on Xbox, 'X' on PS
+        const ALT_THRUST_BUTTON_INDEX = 7; // Right Trigger
+        const DPAD_LEFT_INDEX = 14;
+        const DPAD_RIGHT_INDEX = 15;
+
+        // --- Player 2 Join Logic ---
+        if (!state.isTwoPlayer && state.gameLoopId) {
+            const pad2 = polledPads[1];
+            if (pad2) {
+                const thrustPressed = pad2.buttons[THRUST_BUTTON_INDEX].pressed || pad2.buttons[ALT_THRUST_BUTTON_INDEX].value > 0.1;
+                const prevThrustPressed = prevButtonStates[1].thrust;
+
+                if (thrustPressed && !prevThrustPressed) {
+                    state.isTwoPlayer = true;
+                    addPlayer(1, state.players[0].y, 0);
+                    p2ScoreEl.classList.remove('hidden');
+                    console.log("Player 2 (Gamepad) has joined the game!");
+                }
+                prevButtonStates[1].thrust = thrustPressed;
+            }
+        }
+
+        // --- Player Action Logic ---
+        state.players.forEach((player, i) => {
+            if (!player) return;
+            const pad = polledPads[i];
+            if (!pad) return;
+
+            const stickX = pad.axes[0];
+            const dpadLeft = pad.buttons[DPAD_LEFT_INDEX].pressed;
+            const dpadRight = pad.buttons[DPAD_RIGHT_INDEX].pressed;
+            const thrust = pad.buttons[THRUST_BUTTON_INDEX].pressed || pad.buttons[ALT_THRUST_BUTTON_INDEX].value > 0.1;
+
+            // Gamepad overrides horizontal movement if stick or D-pad is active
+            if (stickX < -DEADZONE || dpadLeft) {
+                player.vx = -gameConstants.PLAYER_SPEED;
+                player.lastDirection = 1;
+            } else if (stickX > DEADZONE || dpadRight) {
+                player.vx = gameConstants.PLAYER_SPEED;
+                player.lastDirection = -1;
+            }
+            
+            // Gamepad adds thrust
+            if (thrust) {
+                player.vy -= gameConstants.THRUST;
+            }
+        });
+    }
+
 
     function updatePlayers() {
         const worldRect = world.getBoundingClientRect();
@@ -535,7 +572,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
     window.addEventListener('keydown', e => { 
-        if (e.key.toLowerCase() === 'j' && !e.repeat) {
+        const key = e.key.toLowerCase();
+        if (key === 'j' && !e.repeat) {
             toggleDevMode();
         }
 
@@ -546,17 +584,17 @@ document.addEventListener('DOMContentLoaded', () => {
             state.isTwoPlayer = true;
             addPlayer(1, state.players[0].y, 0);
             p2ScoreEl.classList.remove('hidden');
-            console.log("Player 2 has joined the game!");
+            console.log("Player 2 (Keyboard) has joined the game!");
         }
 
-        if (e.key.toLowerCase() === 'h') {
+        if (key === 'h') {
             if (messageScreen.classList.contains('hidden')) {
                helpScreen.classList.toggle('hidden');
             }
         }
 
         if (state.devMode && state.levelInProgress) {
-            if (e.key.toLowerCase() === 'n') {
+            if (key === 'n') {
                 console.log("DEV: Skipping to next level.");
                 nextLevel();
             }
@@ -565,6 +603,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('keyup', e => { if (e.key in keys) { e.preventDefault(); keys[e.key] = false; } });
     
+    // --- NEW: GAMEPAD CONNECTION LISTENERS ---
+    window.addEventListener("gamepadconnected", e => {
+        console.log(`Gamepad connected at index ${e.gamepad.index}: ${e.gamepad.id}.`);
+        gamepads[e.gamepad.index] = e.gamepad;
+    });
+    window.addEventListener("gamepaddisconnected", e => {
+        console.log(`Gamepad disconnected from index ${e.gamepad.index}: ${e.gamepad.id}.`);
+        delete gamepads[e.gamepad.index];
+    });
+
     startButton.addEventListener('click', startGame);
     helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));

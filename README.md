@@ -4,7 +4,7 @@
 
 # 🐝🌼🐝 Bee Flower Bee (Co-op)
 
-A retro-styled browser game inspired by arcade classics and the bee arcade minigame from **GTA: San Andreas**.  
+A retro-styled browser game inspired by arcade classics and the bee arcade minigame from **GTA:SA**.  
 Collect all the 🌼 flowers before the timer runs out, bounce off leaves 🌿, and avoid thorny 🌵 obstacles!  
 
 Built with **HTML5, CSS3, and vanilla JavaScript** — no external libraries required.  

@@ -153,9 +153,11 @@ body {
     gap: 8px;
 }
 
+/* === MODIFIED RULE === */
 #player-scores {
     display: flex;
-    gap: 1.2em;
+    flex-direction: column; /* Stack scores vertically */
+    gap: 0.6em;             /* Reduce the gap between them */
 }
 
 #p2-score {

@@ -309,6 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000); // 1-second cooldown
     }
 
+    // --- FUNCTION MODIFIED ---
     function applyGamepadControlsToPlayer(player, pad) {
         const DEADZONE = 0.2;
         const THRUST_BUTTON_INDEX = 0;   // 'A' on Xbox, 'X' on PS
@@ -317,9 +318,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const DPAD_RIGHT_INDEX = 15;
 
         const stickX = pad.axes[0];
+        const stickY = pad.axes[1]; // Get Y-axis value
         const dpadLeft = pad.buttons[DPAD_LEFT_INDEX].pressed;
         const dpadRight = pad.buttons[DPAD_RIGHT_INDEX].pressed;
-        const thrust = pad.buttons[THRUST_BUTTON_INDEX].pressed || pad.buttons[ALT_THRUST_BUTTON_INDEX].value > 0.1;
+        
+        // Combine all thrust inputs: A button, Right Trigger, or Stick Up
+        const thrust = pad.buttons[THRUST_BUTTON_INDEX].pressed || 
+                       pad.buttons[ALT_THRUST_BUTTON_INDEX].value > 0.1 ||
+                       stickY < -DEADZONE;
 
         // Gamepad overrides horizontal movement if stick or D-pad is active
         if (stickX < -DEADZONE || dpadLeft) {

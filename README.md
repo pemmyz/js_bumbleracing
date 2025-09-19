@@ -15,13 +15,43 @@ Built with **HTML5, CSS3, and vanilla JavaScript** — no external libraries req
 
 ## 🎮 Gameplay
 
-- **Controls**
-  - **Player 1:**  
-    - ⬅️➡️ `A/D` → Move left/right  
-    - ⬆️ `W` or `Space` → Thrust upwards  
-  - **Player 2 (join anytime with ⬆️ Arrow):**  
-    - ⬅️➡️ `Arrow Keys` → Move left/right  
-    - ⬆️ `Arrow Up` → Thrust upwards  
+## 🎮 Controls
+
+- **Player 1 (Keyboard)**
+  - ⬅️➡️ `A / D` → Move left/right  
+  - ⬆️ `W` or `Space` → Thrust upwards  
+
+- **Player 2 (Keyboard — join anytime)**
+  - Press `Arrow Up` to join  
+  - ⬅️➡️ `Arrow Left / Arrow Right` → Move left/right  
+  - ⬆️ `Arrow Up` → Thrust upwards  
+
+---
+
+### 🎮 Gamepad (P1 & P2)
+
+> Gamepads are **auto-assigned** when you press any **face button** (`A/B/X/Y` on Xbox, `✕/○/□/△` on PlayStation).  
+> First unclaimed pad becomes **P1**, the next becomes **P2** (and P2 will auto-join if the game is running).
+
+- **Move left/right**
+  - **Left Stick** (X-axis)  
+  - **or** **D-Pad** Left / Right
+
+- **Thrust upwards**
+  - **A** (Xbox) / **✕** (PlayStation)  
+  - **or** **Right Trigger (RT / R2)**  
+  - **or** **Left Stick Up** (push above deadzone)
+
+- **Notes**
+  - Stick deadzone: **~0.2** (small movements are ignored)
+  - If a gamepad disconnects, it’s **unassigned automatically** and the HUD will show `P1: GP?` / `P2: GP?`
+
+---
+
+### 🧩 Joining / Switching
+- **Join with keyboard:** Press `Arrow Up` to add **Player 2** (keyboard).
+- **Join with gamepad:** Press any **face button** on an unassigned controller to claim **P1** or **P2**.
+
 
 - **Objectives**
   - Collect all 🌼 flowers before time runs out

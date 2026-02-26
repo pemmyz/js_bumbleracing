@@ -284,3 +284,60 @@ body.mobile-mode #hud {
 body.mobile-mode #controls-bar {
     display: none; /* Hide bottom controls in mobile mode */
 }
+
+/* =========================================
+   NEW: MOBILE ON-SCREEN CONTROLS
+   ========================================= */
+#mobile-controls {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    pointer-events: none; /* Let clicks pass through the container */
+    display: none; /* Hidden by default */
+}
+
+body.mobile-mode #mobile-controls {
+    display: flex; /* Show in mobile mode */
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 5vmin;
+    box-sizing: border-box;
+}
+
+#mobile-dpad {
+    display: flex;
+    gap: 4vmin;
+    pointer-events: auto;
+}
+
+#mobile-action {
+    pointer-events: auto;
+}
+
+.mobile-control-btn {
+    width: 18vmin;
+    height: 18vmin;
+    max-width: 100px;
+    max-height: 100px;
+    background-color: rgba(255, 255, 255, 0.25);
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    color: white;
+    font-size: 8vmin;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    transition: background-color 0.1s, transform 0.1s;
+}
+
+.mobile-control-btn:active {
+    background-color: rgba(255, 255, 255, 0.5);
+    transform: scale(0.95);
+}

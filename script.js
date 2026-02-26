@@ -18,6 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const externalHelpButton = document.getElementById('external-help-button');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
+    // --- NEW: Mobile Control Selectors ---
+    const mobileControls = document.getElementById('mobile-controls');
+    const mobileLeftBtn = document.getElementById('mobile-left');
+    const mobileRightBtn = document.getElementById('mobile-right');
+    const mobileUpBtn = document.getElementById('mobile-up');
 
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
@@ -667,6 +672,35 @@ document.addEventListener('DOMContentLoaded', () => {
     helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
     externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
+    
+    // --- NEW: MOBILE CONTROL LISTENERS ---
+    function setupMobileControls() {
+        if (!mobileControls) return;
+
+        const addControlListener = (element, key) => {
+            const pressKey = (e) => {
+                e.preventDefault();
+                keys[key] = true;
+            };
+            const releaseKey = (e) => {
+                e.preventDefault();
+                keys[key] = false;
+            };
+
+            element.addEventListener('touchstart', pressKey, { passive: false });
+            element.addEventListener('touchend', releaseKey, { passive: false });
+            element.addEventListener('touchcancel', releaseKey, { passive: false });
+            element.addEventListener('mousedown', pressKey);
+            element.addEventListener('mouseup', releaseKey);
+            element.addEventListener('mouseleave', (e) => {
+                if (e.buttons === 1) { releaseKey(e); }
+            });
+        };
+
+        addControlListener(mobileLeftBtn, 'a');
+        addControlListener(mobileRightBtn, 'd');
+        addControlListener(mobileUpBtn, 'w');
+    }
 
     // --- MOBILE SCALING LOGIC ---
     function toggleMobileModeStyles(isFullscreen) {
@@ -683,4 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener("webkitfullscreenchange", () => {
         toggleMobileModeStyles(document.webkitFullscreenElement != null);
     });
+
+    // --- INITIALIZE ---
+    setupMobileControls();
 });

@@ -91,7 +91,7 @@ body {
 
 #help-screen { background-color: rgba(0, 0, 0, 0.9); text-align: left; padding: 2em; box-sizing: border-box; }
 #help-screen h2 { color: #FFD700; font-size: 1.5em; }
-#help-screen p { font-size: 0.7em; line-height: 2.2; max-width: 80%; } /* MODIFIED line-height */
+#help-screen p { font-size: 0.7em; line-height: 2.2; max-width: 80%; } 
 
 /* Styles for the GitHub link */
 #help-screen a {
@@ -146,25 +146,22 @@ body {
     color: #FFD700;
 }
 
-/* NEW: Player Info Wrapper */
 #player-info {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-/* === MODIFIED RULE === */
 #player-scores {
     display: flex;
-    flex-direction: column; /* Stack scores vertically */
-    gap: 0.6em;             /* Reduce the gap between them */
+    flex-direction: column; 
+    gap: 0.6em;             
 }
 
 #p2-score {
     color: mediumorchid;
 }
 
-/* NEW: Gamepad Status Styles */
 #gamepad-status {
     font-size: 0.7em;
     display: flex;
@@ -210,3 +207,80 @@ body {
 .cloud-puff { position: absolute; border-radius: 50%; }
 .cloud-puff.regular { background-color: rgba(255, 255, 255, 0.7); }
 .cloud-puff.thunder { background-color: rgba(128, 128, 128, 0.7); }
+
+
+/* =========================================
+   MOBILE / FULLSCREEN MODE OVERRIDES
+   ========================================= */
+
+#mobile-btn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 9999;
+    padding: 10px 15px;
+    font-family: var(--retro-font);
+    font-size: 0.8em;
+    background-color: #333;
+    color: white;
+    border: 2px solid white;
+    cursor: pointer;
+    box-shadow: 0 4px #000;
+}
+#mobile-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px #000;
+}
+
+/* Hide the button when already in fullscreen */
+body.mobile-mode #mobile-btn {
+    display: none; 
+}
+
+body.mobile-mode {
+    background-color: #000; /* Black borders */
+    margin: 0;
+}
+
+body.mobile-mode #game-container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #000;
+}
+
+body.mobile-mode #screen {
+    /* Scale top-down & leave bars left and right seamlessly */
+    aspect-ratio: 4 / 3;
+    width: 100vw;
+    height: 100vh;
+    max-width: calc(100vh * (4/3));
+    max-height: calc(100vw * (3/4));
+    
+    border-radius: 0; 
+    padding: 2vmin;
+    border: none;
+    
+    /* Dynamically adjust font-size based on container so em-elements scale properly */
+    font-size: min(1.8vw, 2.4vh);
+}
+
+body.mobile-mode #screen::after {
+    top: 0; left: 0; right: 0; bottom: 0; /* Align scanline overlay */
+}
+
+body.mobile-mode #message-screen, 
+body.mobile-mode #level-message-screen, 
+body.mobile-mode #help-screen {
+    top: 0; left: 0; right: 0; bottom: 0; /* Cover full screen space */
+}
+
+body.mobile-mode #hud {
+    top: 1vmin; left: 1vmin; right: 1vmin; /* Scale HUD bounds */
+}
+
+body.mobile-mode #controls-bar {
+    display: none; /* Hide bottom controls in mobile mode */
+}

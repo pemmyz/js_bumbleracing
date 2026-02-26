@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Bee Flower Bee (Co-op)</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,12 +11,12 @@
 </head>
 <body>
     
-    <!-- Mobile/Fullscreen Button -->
+    <!-- Switch to Mobile Button -->
     <button id="mobile-btn" onclick="goFull()">📱 Switch to mobile</button>
 
     <div id="game-container">
         <div id="screen">
-            <!-- HUD updated for two players and gamepad status -->
+            <!-- HUD -->
             <div id="hud">
                 <div id="player-info">
                     <div id="player-scores">
@@ -32,13 +32,12 @@
                 <div class="hud-item" id="flowers-left">🌼: 5</div>
                 <div class="hud-item" id="timer">⏱️ 3:00</div>
                 <div class="hud-item" id="lives">LIVES: 🐝🐝🐝</div>
-                <!-- Dev mode indicator -->
                 <div id="dev-mode-indicator" class="hidden">DEV MODE</div>
             </div>
             
             <div id="game-area">
                 <div id="world">
-                    <!-- Game Objects will be added here by JS -->
+                    <!-- Game Objects added by JS -->
                 </div>
             </div>
 
@@ -61,14 +60,12 @@
             <!-- Help Screen Overlay -->
             <div id="help-screen" class="hidden">
                 <h2>How to Play</h2>
-                <p><strong>Objective:</strong> Work together to collect all the flowers (🌼) on each level before the timer runs out.</p>
-                <!-- MODIFICATION HERE -->
+                <p><strong>Objective:</strong> Work together to collect all the flowers (🌼) before the timer runs out.</p>
                 <p><strong>P1 Controls:</strong> A/D to move, W/SPACE to thrust. <br><strong>Gamepad:</strong> D-Pad/Left Stick to move, 'A' Button/Right Trigger/Stick Up to thrust.</p>
-                <p><strong>P2 Controls:</strong> Arrow Keys to move and thrust. <br><strong>Gamepad:</strong> Same as Player 1, on a second controller.</p>
-                <p><strong>Joining:</strong> Player 2 can press UP ARROW (keyboard) or a face button (A,B,X,Y) on an unassigned gamepad to join.</p>
-                <p><strong>Dangers:</strong> Don't touch the cacti (🌵) or fall off the bottom of the world!</p>
-                <p><strong>Lives:</strong> You share a pool of lives. Be careful!</p>
-                <p><strong>Hotkeys:</strong> Press 'H' to toggle this help screen. Press 'J' to toggle Developer Mode (shows hitboxes).</p>
+                <p><strong>P2 Controls:</strong> Arrow Keys to move. <br><strong>Gamepad:</strong> Same as Player 1, on a second controller.</p>
+                <p><strong>Joining:</strong> Player 2 can press UP ARROW or a gamepad button to join.</p>
+                <p><strong>Dangers:</strong> Don't touch the cacti (🌵) or fall off the bottom!</p>
+                <p><strong>Lives:</strong> You share a pool of lives.</p>
                 <p><strong>GitHub:</strong> <a href="https://github.com/pemmyz/js_bumbleracing/" target="_blank">View Source Code</a></p>
                 <button id="close-help-button">Close</button>
             </div>
@@ -82,6 +79,7 @@
     <script src="script.js"></script>
     
     <script>
+        // Only trigger fullscreen when this specific function is called by the button
         function goFull() {
             const el = document.documentElement;
             if (el.requestFullscreen) {
@@ -90,13 +88,6 @@
                 el.webkitRequestFullscreen();
             }
         }
-
-        // Global body click requested
-        document.body.addEventListener("click", () => {
-            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                goFull();
-            }
-        });
     </script>
 </body>
 </html>

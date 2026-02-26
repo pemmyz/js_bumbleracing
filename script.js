@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
     let state = {};
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
+    let lastFrameTime = 0;
+    const targetFrameTime = 1000 / 60; // 1000ms / 60fps
+
     const playerControls = [
         { up: ['w', ' '], left: 'a', right: 'd' },
         { up: ['ArrowUp'], left: 'ArrowLeft', right: 'ArrowRight' }
@@ -76,12 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Initialization ---
     function resetGame() {
-        state = { 
-            level: 1, totalScore: 0, lives: 3, 
-            gameLoopId: null, timerId: null, gameOver: false, 
-            isTwoPlayer: false, devMode: false, 
-            lastFrameTime: 0 // Added for 60FPS lock
-        };
+        state = { level: 1, totalScore: 0, lives: 3, gameLoopId: null, timerId: null, gameOver: false, isTwoPlayer: false, devMode: false };
         playerGamepadAssignments = { p1: null, p2: null }; 
     }
 
@@ -132,10 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.timerId) clearInterval(state.timerId);
             state.timerId = setInterval(updateTimer, 1000);
             if(state.gameLoopId) cancelAnimationFrame(state.gameLoopId);
-            
-            // Initialize 60FPS framerate lock
-            state.lastFrameTime = performance.now();
-            state.gameLoopId = requestAnimationFrame(gameLoop);
+            gameLoop();
         });
     }
 
@@ -288,34 +283,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Game Loop (LOCKED TO 60FPS) ---
-    const FPS_INTERVAL = 1000 / 60; // ~16.66ms between frames
-
+    // --- Game Loop ---
     function gameLoop(timestamp) {
-        if (state.gameOver) return;
-        state.gameLoopId = requestAnimationFrame(gameLoop);
-
-        // Ensure we have a timestamp
-        if (!timestamp) timestamp = performance.now();
-        
-        const elapsed = timestamp - state.lastFrameTime;
-
-        // If enough time has passed, render the next frame
-        if (elapsed >= FPS_INTERVAL) {
-            // Adjust lastFrameTime to prevent dropping frames over time
-            state.lastFrameTime = timestamp - (elapsed % FPS_INTERVAL);
-
-            if(state.levelInProgress){
-                handleCloudGeneration();
-                updateAndDrawClouds();
-                handleKeyboardInput();
-                handleGamepadInput(); 
-                updatePlayers();
-                handleCollisions();
+        // --- FRAME RATE CAP ---
+        if (timestamp) {
+            const elapsedTime = timestamp - lastFrameTime;
+            if (elapsedTime < targetFrameTime) {
+                state.gameLoopId = requestAnimationFrame(gameLoop);
+                return; // Skip this frame if it's too soon
             }
-            drawPlayers();
-            updateCamera();
+            lastFrameTime = timestamp;
         }
+
+        if (state.gameOver) return;
+        if(state.levelInProgress){
+            handleCloudGeneration();
+            updateAndDrawClouds();
+            handleKeyboardInput();
+            handleGamepadInput(); 
+            updatePlayers();
+            handleCollisions();
+        }
+        drawPlayers();
+        updateCamera();
+        state.gameLoopId = requestAnimationFrame(gameLoop);
     }
 
     function handleKeyboardInput() {

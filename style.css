@@ -23,7 +23,7 @@ body {
 
 #screen {
     width: 90vw;
-    height: 70vw;
+    aspect-ratio: 4 / 3; /* Enforce 4:3 aspect ratio for consistent scaling */
     max-width: 960px;
     max-height: 720px;
     background-color: #000;
@@ -286,7 +286,7 @@ body.mobile-mode #controls-bar {
 }
 
 /* =========================================
-   NEW: MOBILE ON-SCREEN CONTROLS
+   MOBILE ON-SCREEN CONTROLS
    ========================================= */
 #mobile-controls {
     position: fixed;

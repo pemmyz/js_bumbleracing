@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const externalHelpButton = document.getElementById('external-help-button');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
-    // --- NEW: Mobile Control Selectors ---
+    // --- Mobile Control Selectors ---
     const mobileControls = document.getElementById('mobile-controls');
     const mobileLeftBtn = document.getElementById('mobile-left');
     const mobileRightBtn = document.getElementById('mobile-right');
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { up: ['ArrowUp'], left: 'ArrowLeft', right: 'ArrowRight' }
     ];
 
-    // --- NEW: GAMEPAD STATE ---
+    // --- GAMEPAD STATE ---
     let playerGamepadAssignments = { p1: null, p2: null };
     const gamepadAssignmentCooldown = {}; // Prevents rapid assignment on button hold
     const gamepads = {};
@@ -76,7 +76,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Initialization ---
     function resetGame() {
-        state = { level: 1, totalScore: 0, lives: 3, gameLoopId: null, timerId: null, gameOver: false, isTwoPlayer: false, devMode: false };
+        state = { 
+            level: 1, totalScore: 0, lives: 3, 
+            gameLoopId: null, timerId: null, gameOver: false, 
+            isTwoPlayer: false, devMode: false, 
+            lastFrameTime: 0 // Added for 60FPS lock
+        };
         playerGamepadAssignments = { p1: null, p2: null }; 
     }
 
@@ -127,7 +132,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.timerId) clearInterval(state.timerId);
             state.timerId = setInterval(updateTimer, 1000);
             if(state.gameLoopId) cancelAnimationFrame(state.gameLoopId);
-            gameLoop();
+            
+            // Initialize 60FPS framerate lock
+            state.lastFrameTime = performance.now();
+            state.gameLoopId = requestAnimationFrame(gameLoop);
         });
     }
 
@@ -280,20 +288,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Game Loop ---
-    function gameLoop() {
+    // --- Game Loop (LOCKED TO 60FPS) ---
+    const FPS_INTERVAL = 1000 / 60; // ~16.66ms between frames
+
+    function gameLoop(timestamp) {
         if (state.gameOver) return;
-        if(state.levelInProgress){
-            handleCloudGeneration();
-            updateAndDrawClouds();
-            handleKeyboardInput();
-            handleGamepadInput(); 
-            updatePlayers();
-            handleCollisions();
-        }
-        drawPlayers();
-        updateCamera();
         state.gameLoopId = requestAnimationFrame(gameLoop);
+
+        // Ensure we have a timestamp
+        if (!timestamp) timestamp = performance.now();
+        
+        const elapsed = timestamp - state.lastFrameTime;
+
+        // If enough time has passed, render the next frame
+        if (elapsed >= FPS_INTERVAL) {
+            // Adjust lastFrameTime to prevent dropping frames over time
+            state.lastFrameTime = timestamp - (elapsed % FPS_INTERVAL);
+
+            if(state.levelInProgress){
+                handleCloudGeneration();
+                updateAndDrawClouds();
+                handleKeyboardInput();
+                handleGamepadInput(); 
+                updatePlayers();
+                handleCollisions();
+            }
+            drawPlayers();
+            updateCamera();
+        }
     }
 
     function handleKeyboardInput() {
@@ -673,7 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
     externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     
-    // --- NEW: MOBILE CONTROL LISTENERS ---
+    // --- MOBILE CONTROL LISTENERS ---
     function setupMobileControls() {
         if (!mobileControls) return;
 

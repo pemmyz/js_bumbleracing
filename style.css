@@ -262,15 +262,6 @@ body.mobile-mode #screen {
     border-radius: 0; 
     padding: 2vmin;
     border: none;
-    
-    /* 
-      THIS IS THE KEY FIX:
-      This scales the base font size relative to the viewport.
-      Since all game objects use 'em', they will now scale up and down
-      proportionally, creating a "zoom" effect.
-      The values are derived from a 4:3 aspect ratio.
-    */
-    font-size: min(1.67vw, 2.22vh);
 }
 
 body.mobile-mode #screen::after {

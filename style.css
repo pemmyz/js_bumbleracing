@@ -262,9 +262,6 @@ body.mobile-mode #screen {
     border-radius: 0; 
     padding: 2vmin;
     border: none;
-    
-    /* Dynamically adjust font-size based on container so em-elements scale properly */
-    font-size: min(1.8vw, 2.4vh);
 }
 
 body.mobile-mode #screen::after {

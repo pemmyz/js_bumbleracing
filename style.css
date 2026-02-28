@@ -187,7 +187,7 @@ body.mobile-mode #mobile-controls {
 
 #mobile-dpad { 
     display: flex; 
-    gap: 30px; 
+    gap: 5px;  /* Changed from 30px to 5px */
     margin-left: 20px;
     margin-bottom: 20px;
 }

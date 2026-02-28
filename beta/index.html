@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>js_bumbleracing – Bee Flower Bee (Co-op)</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: #eee;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+}
+
+h1, h2, h3 {
+    color: #ffd84d;
+}
+
+a {
+    color: #66ccff;
+}
+
+code {
+    background: #222;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.section {
+    margin-bottom: 40px;
+}
+
+ul {
+    margin-left: 20px;
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid #333;
+    margin: 40px 0;
+}
+
+.screenshot {
+    max-width: 100%;
+    border: 2px solid #444;
+    border-radius: 6px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>js_bumbleracing</h1>
+
+<h2>Play it now:</h2>
+<p>
+<a href="https://pemmyz.github.io/js_bumbleracing/" target="_blank">
+https://pemmyz.github.io/js_bumbleracing/
+</a>
+</p>
+
+<hr>
+
+<h1>🐝🌼🐝 Bee Flower Bee (Co-op)</h1>
+
+<p>
+A retro-styled browser game inspired by arcade classics and the bee arcade minigame from <strong>GTA:SA</strong>.  
+Collect all the 🌼 flowers before the timer runs out, bounce off leaves 🌿, and avoid thorny 🌵 obstacles!
+</p>
+
+<p>
+Built with <strong>HTML5, CSS3, and vanilla JavaScript</strong> — no external libraries required.
+</p>
+
+<img src="screenshots/game_1.png" alt="Game Screenshot" class="screenshot">
+
+<hr>
+
+<div class="section">
+<h2>🎮 Gameplay</h2>
+
+<h3>🎮 Controls</h3>
+
+<h4>Player 1 (Keyboard)</h4>
+<ul>
+<li>⬅️➡️ <code>A / D</code> → Move left/right</li>
+<li>⬆️ <code>W</code> or <code>Space</code> → Thrust upwards</li>
+</ul>
+
+<h4>Player 2 (Keyboard — join anytime)</h4>
+<ul>
+<li>Press <code>Arrow Up</code> to join</li>
+<li>⬅️➡️ <code>Arrow Left / Arrow Right</code> → Move left/right</li>
+<li>⬆️ <code>Arrow Up</code> → Thrust upwards</li>
+</ul>
+
+<h3>🎮 Gamepad (P1 & P2)</h3>
+
+<p>
+Gamepads are <strong>auto-assigned</strong> when you press any face button  
+(<code>A/B/X/Y</code> on Xbox, <code>✕/○/□/△</code> on PlayStation).
+</p>
+
+<ul>
+<li>First unclaimed pad becomes <strong>P1</strong></li>
+<li>Next becomes <strong>P2</strong> (auto-joins if game is running)</li>
+</ul>
+
+<h4>Move left/right</h4>
+<ul>
+<li>Left Stick (X-axis)</li>
+<li>or D-Pad Left / Right</li>
+</ul>
+
+<h4>Thrust upwards</h4>
+<ul>
+<li>A (Xbox) / ✕ (PlayStation)</li>
+<li>Right Trigger (RT / R2)</li>
+<li>Left Stick Up (above deadzone)</li>
+</ul>
+
+<h4>Notes</h4>
+<ul>
+<li>Stick deadzone: ~0.2</li>
+<li>If gamepad disconnects, it is unassigned automatically</li>
+<li>HUD shows <code>P1: GP?</code> / <code>P2: GP?</code></li>
+</ul>
+
+<h3>🧩 Joining / Switching</h3>
+<ul>
+<li>Press <code>Arrow Up</code> to add Player 2 (keyboard)</li>
+<li>Press any face button on unassigned controller to claim P1 or P2</li>
+</ul>
+
+<h3>Objectives</h3>
+<ul>
+<li>Collect all 🌼 flowers before time runs out</li>
+<li>Avoid thorny 🌵 clusters</li>
+<li>Bounce off 🌿 platforms</li>
+</ul>
+
+<h3>Progression</h3>
+<ul>
+<li>Each level increases difficulty</li>
+<li>Extra life every 3 levels</li>
+<li>Score bonus for leftover time</li>
+</ul>
+
+<h3>Co-op Mode</h3>
+<ul>
+<li>Drop-in/out 2-player cooperative play</li>
+<li>Shared life pool</li>
+<li>Dynamic camera adjustment</li>
+</ul>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>🕹️ Features</h2>
+<ul>
+<li>Retro CRT screen effect</li>
+<li>Emoji-based graphics</li>
+<li>Dynamic cloud system (☁️ & ⚡)</li>
+<li>Physics: gravity, thrust, bounce</li>
+<li>Randomized level generation</li>
+<li>Two-player HUD support</li>
+<li>Start/Game Over screens</li>
+<li>Level transition messages</li>
+<li>Help screen</li>
+</ul>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>🛠️ Developer Mode</h2>
+<ul>
+<li><code>J</code> → Toggle Developer Mode</li>
+<li>Shows collision hitboxes</li>
+<li>Displays DEV MODE indicator</li>
+<li><code>N</code> → Skip to next level</li>
+</ul>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>❓ Help & Controls Overlay</h2>
+<ul>
+<li>Press <code>H</code> or click Help button</li>
+<li>Explains objectives, controls, dangers, and hotkeys</li>
+<li>Player 2 can join anytime</li>
+</ul>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>📸 Screenshots</h2>
+<p>Add screenshots here once available!</p>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>💡 Future Ideas</h2>
+<ul>
+<li>🎵 Retro sound effects & music</li>
+<li>🌩️ Thunder cloud hazards</li>
+<li>🌍 Online leaderboard</li>
+<li>📱 Mobile touch controls</li>
+<li>🐸 Secret "AMIGAAA!" frog mode</li>
+</ul>
+</div>
+
+<hr>
+
+<div class="section">
+<h2>📜 License</h2>
+<p>MIT License — Free to play, modify, and share.</p>
+</div>
+
+</div>
+</body>
+</html>

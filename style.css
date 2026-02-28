@@ -90,8 +90,15 @@ body.mobile-mode {
 /* --- GAME OBJECTS --- */
 .game-object { position: absolute; font-size: 40px; will-change: transform; }
 .player { z-index: 10; font-size: 40px; }
-.player-1-glow { filter: drop-shadow(0 0 5px gold); }
-.player-2-glow { filter: drop-shadow(0 0 5px mediumorchid); }
+
+
+
+
+.player-1-glow { filter: drop-shadow(0 0 10px gold) drop-shadow(0 0 10px gold) drop-shadow(0 0 10px gold); }
+.player-2-glow { filter: drop-shadow(0 0 10px mediumorchid) drop-shadow(0 0 10px mediumorchid) drop-shadow(0 0 10px mediumorchid); }
+
+
+
 .platform { color: #228B22; }
 .thorn { color: #696969; }
 .flower { z-index: 5; }

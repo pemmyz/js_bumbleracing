@@ -24,6 +24,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const mobileRightBtn = document.getElementById('mobile-right');
     const mobileUpBtn = document.getElementById('mobile-up');
 
+    // --- Scaling Logic ---
+    function scaleGame() {
+        const screen = document.getElementById("screen");
+        const baseWidth = 960;
+        const baseHeight = 720;
+        
+        // Calculate scale to fit window
+        const scale = Math.min(
+            window.innerWidth / baseWidth,
+            window.innerHeight / baseHeight
+        );
+        
+        screen.style.transform = `scale(${scale})`;
+    }
+
+    // Attach scaling listeners
+    window.addEventListener("resize", scaleGame);
+    window.addEventListener("fullscreenchange", scaleGame);
+    window.addEventListener("webkitfullscreenchange", scaleGame);
+    // Initial Scale
+    scaleGame();
+
+
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
     let state = {};
@@ -109,8 +132,10 @@ document.addEventListener('DOMContentLoaded', () => {
         state.flowersToCollect = levelConfig.flowers;
         generateLevel(levelConfig.platforms, levelConfig.thorns, levelConfig.flowers);
         
-        const worldRect = world.getBoundingClientRect();
-        const startY = worldRect.height - 200;
+        // Use offsetHeight/Width to get unscaled dimensions
+        const worldHeight = world.offsetHeight;
+        const worldWidth = world.offsetWidth;
+        const startY = worldHeight - 200;
         
         addPlayer(0, startY, oldScores[0] || 0);
 
@@ -118,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addPlayer(1, startY, oldScores[1] || 0);
         }
 
-        const startPlatform = { x: worldRect.width / 2 - 80, y: startY + 100, width: 200, height: 20, };
+        const startPlatform = { x: worldWidth / 2 - 80, y: startY + 100, width: 200, height: 20, };
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
         state.platforms.push(startPlatform);
         
@@ -135,12 +160,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addPlayer(playerIndex, startY, score = 0) {
-        const worldRect = world.getBoundingClientRect();
+        const worldWidth = world.offsetWidth;
         const player = {
             id: playerIndex + 1,
             el: null,
             hitboxEl: null,
-            x: worldRect.width / 2 + (playerIndex === 0 ? -40 : 40),
+            x: worldWidth / 2 + (playerIndex === 0 ? -40 : 40),
             y: startY,
             vx: 0, vy: 0, width: 40, height: 40,
             lastDirection: -1,
@@ -154,16 +179,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Level Generation & Clouds ---
     function prepopulateClouds(count) {
-        const worldRect = world.getBoundingClientRect();
+        const w = world.offsetWidth;
+        const h = world.offsetHeight;
         for (let i = 0; i < count; i++) {
-            state.clouds.push(new Cloud(Math.random() * worldRect.width, Math.random() * worldRect.height, Math.random() < 0.3));
+            state.clouds.push(new Cloud(Math.random() * w, Math.random() * h, Math.random() < 0.3));
         }
     }
     function getLevelConfig(level) {
         return { flowers: Math.min(5 + level * 2, 50), platforms: Math.min(10 + level * 2, 40), thorns: Math.min(5 + Math.floor(level * 1.5), 45) };
     }
     function generateLevel(platformCount, thornCount, flowerCount) {
-        const worldRect = world.getBoundingClientRect();
+        const w = world.offsetWidth;
+        const h = world.offsetHeight;
         const allGeneratedObjects = [];
         const MAX_TRIES = 50;
         let platformsForFlowers = [];
@@ -173,8 +200,8 @@ document.addEventListener('DOMContentLoaded', () => {
             while (!placed && tries < MAX_TRIES) {
                 const pWidth = 80;
                 const pHeight = 20;
-                const potentialX = Math.random() * (worldRect.width - pWidth);
-                const potentialY = Math.random() * (worldRect.height - 400) + 50;
+                const potentialX = Math.random() * (w - pWidth);
+                const potentialY = Math.random() * (h - 400) + 50;
                 const newRect = { x: potentialX, y: potentialY, width: pWidth, height: pHeight };
                 let isValidPosition = true;
                 for (const obj of allGeneratedObjects) {
@@ -223,10 +250,10 @@ document.addEventListener('DOMContentLoaded', () => {
             while (!placed && tries < MAX_TRIES) {
                 const tWidth = 40;
                 const tHeight = 40;
-                const clusterCenterX = Math.random() * (worldRect.width - 120) + 60;
-                const clusterCenterY = Math.random() * (worldRect.height - 400) + 50;
-                const playerStartX = worldRect.width / 2;
-                const playerStartY = worldRect.height - 200;
+                const clusterCenterX = Math.random() * (w - 120) + 60;
+                const clusterCenterY = Math.random() * (h - 400) + 50;
+                const playerStartX = w / 2;
+                const playerStartY = h - 200;
                 if (Math.abs(clusterCenterX - playerStartX) < 200 && Math.abs(clusterCenterY - playerStartY) < 200) {
                     tries++;
                     continue;
@@ -264,12 +291,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function handleCloudGeneration() {
         state.frame++;
-        const worldRect = world.getBoundingClientRect();
+        const w = world.offsetWidth;
+        const h = world.offsetHeight;
         if (state.frame % 150 === 0) {
-            state.clouds.push(new Cloud(worldRect.width + 100, Math.random() * worldRect.height));
+            state.clouds.push(new Cloud(w + 100, Math.random() * h));
         }
         if (state.frame % 300 === 0) {
-            state.clouds.push(new Cloud(worldRect.width + 200, Math.random() * worldRect.height, true));
+            state.clouds.push(new Cloud(w + 200, Math.random() * h, true));
         }
     }
     function updateAndDrawClouds() {
@@ -416,8 +444,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Player & Camera Updates ---
     function updatePlayers() {
-        const worldRect = world.getBoundingClientRect();
-        const screenHeight = gameArea.clientHeight;
+        const worldWidth = world.offsetWidth;
+        const worldHeight = world.offsetHeight;
+        const screenHeight = 720; // Fixed internal height
 
         if (!state.isTwoPlayer || state.players.length < 2 || !state.players[1]) {
             const p = state.players[0];
@@ -455,21 +484,21 @@ document.addEventListener('DOMContentLoaded', () => {
         state.players.forEach(p => {
             if (!p) return;
             if (p.x < 0) p.x = 0;
-            if (p.x + p.width > worldRect.width) p.x = worldRect.width - p.width;
+            if (p.x + p.width > worldWidth) p.x = worldWidth - p.width;
             if (p.y < 0) { p.y = 0; p.vy = 0; }
-            if (p.y + p.height > worldRect.height) handleDeath();
+            if (p.y + p.height > worldHeight) handleDeath();
         });
     }
     function updateCamera() {
-        const gameRect = gameArea.getBoundingClientRect();
-        const worldRect = world.getBoundingClientRect();
+        const gameRectHeight = 720;
+        const worldHeight = world.offsetHeight;
         
         const p1_y = state.players[0].y;
         const p2_y = state.players[1]?.y || p1_y;
         const averagePlayerY = (p1_y + p2_y) / 2;
 
-        let targetCameraY = averagePlayerY - (gameRect.height / 2);
-        const maxCameraY = worldRect.height - gameRect.height;
+        let targetCameraY = averagePlayerY - (gameRectHeight / 2);
+        const maxCameraY = worldHeight - gameRectHeight;
         if (targetCameraY > maxCameraY) targetCameraY = maxCameraY;
         if (targetCameraY < 0) targetCameraY = 0;
         state.cameraY = targetCameraY;
@@ -547,7 +576,6 @@ document.addEventListener('DOMContentLoaded', () => {
             p[1].textContent += ` | P2: ${finalP2Score}`;
         }
         p[2].textContent = `Reached Level: ${state.level}`;
-        p[3].textContent = '';
         startButton.textContent = 'Play Again'; 
         messageScreen.classList.remove('hidden');
     }
@@ -714,22 +742,6 @@ document.addEventListener('DOMContentLoaded', () => {
         addControlListener(mobileRightBtn, 'd');
         addControlListener(mobileUpBtn, 'w');
     }
-
-    // --- MOBILE SCALING LOGIC ---
-    function toggleMobileModeStyles(isFullscreen) {
-        if (isFullscreen) {
-            document.body.classList.add('mobile-mode');
-        } else {
-            document.body.classList.remove('mobile-mode');
-        }
-    }
-
-    document.addEventListener("fullscreenchange", () => {
-        toggleMobileModeStyles(document.fullscreenElement != null);
-    });
-    document.addEventListener("webkitfullscreenchange", () => {
-        toggleMobileModeStyles(document.webkitFullscreenElement != null);
-    });
 
     // --- INITIALIZE ---
     setupMobileControls();

@@ -18,32 +18,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const externalHelpButton = document.getElementById('external-help-button');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
+    
     // --- Mobile Control Selectors ---
     const mobileControls = document.getElementById('mobile-controls');
     const mobileLeftBtn = document.getElementById('mobile-left');
     const mobileRightBtn = document.getElementById('mobile-right');
     const mobileUpBtn = document.getElementById('mobile-up');
 
-    // --- Scaling Logic ---
+    // --- Scaling Logic & Mobile Mode ---
     function scaleGame() {
         const screen = document.getElementById("screen");
-        const baseWidth = 960;
-        const baseHeight = 720;
-        
-        // Calculate scale to fit window
-        const scale = Math.min(
-            window.innerWidth / baseWidth,
-            window.innerHeight / baseHeight
-        );
-        
-        screen.style.transform = `scale(${scale})`;
+        // Check if we are in Fullscreen mode
+        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+
+        if (isFullscreen) {
+            // Fullscreen Mode: Zoom to fit window + Enable Mobile Controls
+            const baseWidth = 960;
+            const baseHeight = 720;
+            const scale = Math.min(
+                window.innerWidth / baseWidth,
+                window.innerHeight / baseHeight
+            );
+            screen.style.transform = `scale(${scale})`;
+            document.body.classList.add('mobile-mode');
+        } else {
+            // Windowed Mode: No Zoom, Native Resolution (960x720) centered
+            screen.style.transform = 'none'; 
+            document.body.classList.remove('mobile-mode');
+        }
     }
 
     // Attach scaling listeners
     window.addEventListener("resize", scaleGame);
     window.addEventListener("fullscreenchange", scaleGame);
     window.addEventListener("webkitfullscreenchange", scaleGame);
-    // Initial Scale
+    // Initial Scale Check
     scaleGame();
 
 
@@ -61,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- GAMEPAD STATE ---
     let playerGamepadAssignments = { p1: null, p2: null };
-    const gamepadAssignmentCooldown = {}; // Prevents rapid assignment on button hold
+    const gamepadAssignmentCooldown = {}; 
     const gamepads = {};
 
     // --- Cloud Class ---
@@ -132,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.flowersToCollect = levelConfig.flowers;
         generateLevel(levelConfig.platforms, levelConfig.thorns, levelConfig.flowers);
         
-        // Use offsetHeight/Width to get unscaled dimensions
         const worldHeight = world.offsetHeight;
         const worldWidth = world.offsetWidth;
         const startY = worldHeight - 200;

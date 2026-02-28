@@ -10,7 +10,7 @@ body {
     align-items: center;
     height: 100vh;
     width: 100vw;
-    overflow: hidden;
+    overflow: auto; /* Allow scrolling if window is smaller than game in native mode */
     font-family: var(--retro-font);
     color: white;
 }
@@ -19,12 +19,12 @@ body {
 #screen {
     width: 960px;
     height: 720px;
-    background: #1a1a1a; /* Dark gray background for letterboxing if needed */
+    background: #1a1a1a;
     position: relative;
     overflow: hidden;
-    /* CSS Transform scaling handles the rest */
     transform-origin: center center;
     box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    flex-shrink: 0; /* Prevent shrinking in small windows */
 }
 
 /* Scanline Overlay Effect */
@@ -52,7 +52,7 @@ body {
     position: absolute;
     top: 0; left: 0;
     width: 100%;
-    height: 300%; /* Vertical scrolling world */
+    height: 300%;
 }
 
 /* --- HUD --- */
@@ -109,9 +109,7 @@ body {
 
 #message-screen h1 { color: #FFD700; margin-bottom: 20px; font-size: 40px; }
 .instructions { font-size: 16px; line-height: 1.5; margin: 10px; }
-
 #level-message-screen { font-size: 40px; color: #FFD700; text-shadow: 4px 4px 0 #000; pointer-events: none; }
-
 #help-screen { align-items: flex-start; padding: 50px; box-sizing: border-box; }
 #help-screen h2 { color: #FFD700; }
 #help-screen p { font-size: 14px; line-height: 2; }
@@ -137,41 +135,64 @@ button:active { transform: translateY(4px); box-shadow: 0 0 0 #333; }
     z-index: 800;
 }
 
-/* --- MOBILE CONTROLS OVERLAY (Fixed to Viewport) --- */
 #mobile-btn {
     position: fixed;
     top: 10px; left: 10px;
-    z-index: 1000;
+    z-index: 2000;
     background: #333;
     font-size: 12px;
     padding: 8px;
 }
+/* Hide button in mobile mode to clean up screen */
+body.mobile-mode #mobile-btn { display: none; }
 
+
+/* --- MOBILE CONTROLS OVERLAY --- */
 #mobile-controls {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none;
-    z-index: 1000;
-    display: none; /* JS enables this on touch devices if needed, or by default */
+    pointer-events: none; 
+    z-index: 3000;
+    display: none; /* Hidden by default (Windowed Mode) */
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
-/* Only show mobile controls if needed - simplified approach: show on touch */
-@media (hover: none) and (pointer: coarse) {
-    #mobile-controls { display: flex; justify-content: space-between; align-items: flex-end; padding: 20px; box-sizing: border-box; }
+/* Only show controls if in Mobile Mode (Fullscreen) */
+body.mobile-mode #mobile-controls {
+    display: flex;
 }
 
 .mobile-control-btn {
     pointer-events: auto;
-    width: 80px; height: 80px;
-    background: rgba(255,255,255,0.2);
-    border: 2px solid rgba(255,255,255,0.5);
+    width: 90px; height: 90px;
+    background: rgba(255,255,255,0.15);
+    border: 3px solid rgba(255,255,255,0.4);
     border-radius: 50%;
     color: white;
-    font-size: 30px;
+    font-size: 40px;
     display: flex; justify-content: center; align-items: center;
     user-select: none;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(4px);
+    margin-bottom: 20px;
+    transition: transform 0.1s, background 0.1s;
 }
-.mobile-control-btn:active { background: rgba(255,255,255,0.5); }
-#mobile-dpad { display: flex; gap: 20px; margin-bottom: 20px; }
-#mobile-action { margin-bottom: 40px; margin-right: 20px; }
+
+.mobile-control-btn:active { 
+    background: rgba(255,255,255,0.4); 
+    transform: scale(0.95);
+}
+
+#mobile-dpad { 
+    display: flex; 
+    gap: 30px; 
+    margin-left: 20px;
+    margin-bottom: 20px;
+}
+
+#mobile-action { 
+    margin-right: 40px; 
+    margin-bottom: 40px;
+}

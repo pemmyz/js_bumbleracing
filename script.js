@@ -49,12 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
             this.mode = 'buffered'; 
             this.latencyHint = 'interactive';
             this.noiseGenMode = 'offline';
-            this.processingMode = 'standard';
+            this.processingMode = 'worklet'; // Set default to worklet
             this.useBufferPool = false;
             
             this.ctx = null;
             this.masterGain = null;
             this.limiter = null;
+            this.workletNode = null;
+            
             this.buffers = { tink: null, tonk: null };
             this.noiseBuffer = null;
             this.isTinkNext = true;
@@ -89,6 +91,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (this.processingMode === 'worklet' && this.ctx.audioWorklet) {
                 console.log("⚡ AudioWorklet pipeline requested.");
+                try {
+                    await this.ctx.audioWorklet.addModule('flower-worklet.js');
+                    this.workletNode = new AudioWorkletNode(this.ctx, 'flower-processor');
+                    this.workletNode.connect(this.masterGain);
+                    console.log("✅ AudioWorklet successfully loaded and connected.");
+                } catch(e) {
+                    console.error("AudioWorklet failed to load, falling back to standard thread.", e);
+                    this.processingMode = 'standard';
+                }
+            } else {
+                this.workletNode = null;
             }
 
             this.noiseBuffer = await this.createNoiseBuffer();
@@ -141,7 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 osc.connect(env).connect(out);
                 osc.start(0);
 
-                // Noise Chiff
                 if (noiseBuf) {
                     const src = ctx.createBufferSource();
                     src.buffer = noiseBuf;
@@ -170,7 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 osc.connect(filter).connect(env).connect(out);
                 osc.start(0);
 
-                // Noise Chiff
                 if (noiseBuf) {
                     const src = ctx.createBufferSource();
                     src.buffer = noiseBuf;
@@ -208,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         playFlowerSound() {
             if (this.mode === 'buffered') {
-                if (this.useBufferPool && this.tinkPool.length > 0) {
+                if (this.useBufferPool && this.tinkPool.length > 0 && this.processingMode !== 'worklet') {
                     this.playFromPool();
                 } else {
                     this.isTinkNext ? this.playBuffer(this.buffers.tink) : this.playBuffer(this.buffers.tonk);
@@ -221,10 +232,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         playBuffer(buffer) {
             if (!buffer) return;
-            const source = this.ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(this.masterGain);
-            source.start(0);
+            
+            if (this.processingMode === 'worklet' && this.workletNode) {
+                // Pipe to the Worklet thread
+                this.workletNode.port.postMessage({
+                    type: 'play',
+                    buffer: buffer.getChannelData(0)
+                });
+            } else {
+                // Fallback / Standard implementation
+                const source = this.ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(this.masterGain);
+                source.start(0);
+            }
         }
 
         playFromPool() {
@@ -279,15 +300,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setAdvancedOptions(options) {
-            if (options.processingMode) this.processingMode = options.processingMode;
+            let needsReboot = false;
+            if (options.processingMode && options.processingMode !== this.processingMode) {
+                this.processingMode = options.processingMode;
+                needsReboot = true;
+            }
             if (options.useBufferPool !== undefined) {
                 this.useBufferPool = options.useBufferPool;
                 if (this.useBufferPool) this.initPools();
             }
             if (options.noiseGenMode && options.noiseGenMode !== this.noiseGenMode) {
                 this.noiseGenMode = options.noiseGenMode;
-                this.rebootContext();
+                needsReboot = true;
             }
+            if (needsReboot) this.rebootContext();
         }
 
         rebootContext() {

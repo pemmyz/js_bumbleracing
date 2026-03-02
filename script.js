@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.latencyHint = 'interactive';
             this.noiseGenMode = 'offline';
             this.processingMode = 'worklet'; // Set default to worklet
-            this.useBufferPool = false;
+            this.useBufferPool = true; // Syncing to optimized default setting
             
             this.ctx = null;
             this.masterGain = null;
@@ -199,6 +199,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (this.useBufferPool) this.initPools();
+
+            // Send buffers to the Worklet memory once
+            if (this.processingMode === 'worklet' && this.workletNode) {
+                this.workletNode.port.postMessage({ type: 'load', name: 'tink', buffer: this.buffers.tink.getChannelData(0) });
+                this.workletNode.port.postMessage({ type: 'load', name: 'tonk', buffer: this.buffers.tonk.getChannelData(0) });
+            }
+
             console.log("✅ Audio Buffers Ready.");
         }
 
@@ -236,13 +243,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!buffer) return;
             
             if (this.processingMode === 'worklet' && this.workletNode) {
-                // Pipe to the Worklet thread
-                this.workletNode.port.postMessage({
-                    type: 'play',
-                    buffer: buffer.getChannelData(0)
-                });
+                // Only send a tiny string/trigger flag - almost 0 latency
+                const soundName = buffer === this.buffers.tink ? 'tink' : 'tonk';
+                this.workletNode.port.postMessage({ type: 'play', name: soundName });
             } else {
-                // Fallback / Standard implementation
                 const source = this.ctx.createBufferSource();
                 source.buffer = buffer;
                 source.connect(this.masterGain);
@@ -457,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetFrameTime = 1000 / 60; 
     
     let showFps = false;
-    let lockFps = true; 
+    let lockFps = false; // Synced with optimized defaults
     let framesThisSecond = 0;
     let lastFpsUpdateTime = 0;
 

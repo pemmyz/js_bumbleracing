@@ -18,7 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const externalHelpButton = document.getElementById('external-help-button');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
+    
+    // --- Settings Selectors ---
     const speedSelect = document.getElementById('speed-select');
+    const fpsCounterEl = document.getElementById('fps-counter');
+    const toggleFpsCheckbox = document.getElementById('toggle-fps');
+    const lockFpsCheckbox = document.getElementById('lock-fps');
     
     // --- Mobile Control Selectors ---
     const mobileControls = document.getElementById('mobile-controls');
@@ -64,9 +69,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- Game Loop timing & Speed variables ---
     let lastFrameTime = 0;
+    let lastRenderTime = 0;
     let accumulator = 0;
     let gameSpeed = 1.0;
     const targetFrameTime = 1000 / 60; // 1000ms / 60fps
+    
+    // --- FPS Variables ---
+    let showFps = false;
+    let lockFps = true; // Default to TRUE
+    let framesThisSecond = 0;
+    let lastFpsUpdateTime = 0;
 
     const playerControls = [
         { up: ['w', ' '], left: 'a', right: 'd' },
@@ -169,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Set fresh timeline baseline right as game officially begins
             lastFrameTime = performance.now();
+            lastRenderTime = lastFrameTime;
             accumulator = 0;
             
             if(state.gameLoopId) cancelAnimationFrame(state.gameLoopId);
@@ -331,14 +344,41 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Game Loop (Fixed Timestep) ---
     function gameLoop(timestamp) {
         if (!timestamp) timestamp = performance.now();
-        if (lastFrameTime === 0) lastFrameTime = timestamp;
+        if (lastFrameTime === 0) {
+            lastFrameTime = timestamp;
+            lastRenderTime = timestamp;
+        }
         
+        // --- FPS LOCK LOGIC ---
+        if (lockFps) {
+            let elapsedRender = timestamp - lastRenderTime;
+            // Throttle rendering to ~60 frames per second. (-1ms tolerance for minor timing jitter)
+            if (elapsedRender < targetFrameTime - 1) { 
+                state.gameLoopId = requestAnimationFrame(gameLoop);
+                return; // Skip this frame
+            }
+            // Align lastRenderTime smoothly to maintain steady 60hz intervals (VRR compatible)
+            lastRenderTime = timestamp - (elapsedRender % targetFrameTime);
+        } else {
+            lastRenderTime = timestamp;
+        }
+
         let dt = timestamp - lastFrameTime;
         lastFrameTime = timestamp;
 
         // Cap dt to prevent massive logic jumps/freezes when tab is inactive
         if (dt > 250) dt = 250; 
         
+        // --- FPS COUNTER UPDATES ---
+        if (showFps) {
+            framesThisSecond++;
+            if (timestamp - lastFpsUpdateTime >= 1000) {
+                fpsCounterEl.textContent = `FPS: ${framesThisSecond}`;
+                framesThisSecond = 0;
+                lastFpsUpdateTime = timestamp;
+            }
+        }
+
         // Multiplier immediately affects how much frame 'time' we are getting
         accumulator += dt * gameSpeed;
 
@@ -757,10 +797,24 @@ document.addEventListener('DOMContentLoaded', () => {
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
     externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     
-    // Connect Speed Switch UI
+    // Connect Help Menu Settings UI
     speedSelect.addEventListener('change', (e) => {
         gameSpeed = parseFloat(e.target.value);
         console.log(`Game speed updated to: ${gameSpeed}x`);
+    });
+
+    toggleFpsCheckbox.addEventListener('change', (e) => {
+        showFps = e.target.checked;
+        fpsCounterEl.classList.toggle('hidden', !showFps);
+        if (showFps) {
+            framesThisSecond = 0;
+            lastFpsUpdateTime = performance.now();
+        }
+    });
+
+    lockFpsCheckbox.addEventListener('change', (e) => {
+        lockFps = e.target.checked;
+        lastRenderTime = performance.now(); // Reset sync timing when toggled
     });
 
     // --- MOBILE CONTROL LISTENERS ---

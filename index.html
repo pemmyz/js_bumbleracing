@@ -31,10 +31,15 @@
                         <span id="p2-gp-status" class="hidden">P2: GP?</span>
                     </div>
                 </div>
+                
                 <div class="hud-item" id="level">LEVEL: 1</div>
                 <div class="hud-item" id="flowers-left">🌼: 5</div>
                 <div class="hud-item" id="timer">⏱️ 3:00</div>
                 <div class="hud-item" id="lives">LIVES: 🐝🐝🐝</div>
+                
+                <!-- FPS Counter: Absolutely positioned to not disrupt the row above -->
+                <div class="hud-item hidden" id="fps-counter">FPS: 60</div>
+                
                 <div id="dev-mode-indicator" class="hidden">DEV MODE</div>
             </div>
             
@@ -65,16 +70,25 @@
                 <p><strong>Controls:</strong> Keyboard (WASD/Arrows) or Gamepad.</p>
                 <p><strong>Co-op:</strong> A second player can join anytime.</p>
                 
-                <div id="speed-settings">
-                    <label for="speed-select">Game Speed:</label>
-                    <select id="speed-select">
-                        <option value="0.75">0.75x</option>
-                        <option value="1.0" selected>1.0x</option>
-                        <option value="1.25">1.25x</option>
-                        <option value="1.5">1.5x</option>
-                        <option value="1.75">1.75x</option>
-                        <option value="2.0">2.0x</option>
-                    </select>
+                <div class="settings-container">
+                    <div class="settings-row" id="speed-settings">
+                        <label for="speed-select">Game Speed:</label>
+                        <select id="speed-select">
+                            <option value="0.75">0.75x</option>
+                            <option value="1.0" selected>1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="1.75">1.75x</option>
+                            <option value="2.0">2.0x</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="toggle-fps"> Show FPS Counter</label>
+                    </div>
+                    <div class="settings-row">
+                        <!-- Checked by default -->
+                        <label><input type="checkbox" id="lock-fps" checked> Lock FPS to 60</label>
+                    </div>
                 </div>
 
                 <button id="close-help-button">Close</button>

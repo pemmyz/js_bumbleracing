@@ -84,13 +84,46 @@
                         </select>
                     </div>
 
-                    <!-- Audio Mode Settings (New) -->
+                    <!-- Audio Mode Settings -->
                     <div class="settings-row">
                         <label for="audio-mode">Audio Engine:</label>
                         <select id="audio-mode" class="retro-select">
                             <option value="buffered" selected>Zero-Cost (Buffers)</option>
                             <option value="procedural">Real-time (Synth)</option>
                         </select>
+                    </div>
+
+                    <!-- Advanced Audio Processing -->
+                    <div class="settings-row">
+                        <label for="processing-mode">Audio Processing:</label>
+                        <select id="processing-mode" class="retro-select">
+                            <option value="standard" selected>Standard Audio Thread</option>
+                            <option value="worklet">AudioWorklet (True Thread)</option>
+                        </select>
+                    </div>
+
+                    <!-- Noise Generation Method -->
+                    <div class="settings-row">
+                        <label for="noise-gen">Noise Generation:</label>
+                        <select id="noise-gen" class="retro-select">
+                            <option value="offline" selected>OfflineRender (Zero Cost)</option>
+                            <option value="sync">Runtime Sync (Heavy)</option>
+                        </select>
+                    </div>
+
+                    <!-- Audio Latency Hint -->
+                    <div class="settings-row">
+                        <label for="latency-hint">Audio Latency:</label>
+                        <select id="latency-hint" class="retro-select">
+                            <option value="interactive" selected>Low (Interactive)</option>
+                            <option value="balanced">Balanced</option>
+                            <option value="playback">High (Playback)</option>
+                        </select>
+                    </div>
+
+                    <!-- Buffer Pool Toggle -->
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="use-buffer-pool"> Use Buffer Pool (Rapid Fire)</label>
                     </div>
 
                     <!-- Volume Settings -->
@@ -101,7 +134,7 @@
                         <input type="range" id="volume-slider" min="0" max="100" value="50">
                     </div>
 
-                    <!-- Checkboxes -->
+                    <!-- Video Checkboxes -->
                     <div class="settings-row">
                         <label><input type="checkbox" id="toggle-fps"> Show FPS Counter</label>
                     </div>
@@ -112,7 +145,8 @@
 
                 <div class="help-footer">
                     <button id="close-help-button">Close</button>
-                    <div id="game-version">v1.5.1</div>
+                    <button id="restart-game-button" style="background: #e74c3c;">Restart Game</button>
+                    <div id="game-version">v1.6.0</div>
                 </div>
             </div>
 

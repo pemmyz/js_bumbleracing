@@ -15,6 +15,7 @@ body {
     color: white;
 }
 
+/* --- MOBILE MODE LOCK --- */
 body.mobile-mode {
     overflow: hidden;
     touch-action: none;
@@ -25,6 +26,7 @@ body.mobile-mode {
     left: 0;
 }
 
+/* --- THE SCREEN (Fixed Internal Resolution) --- */
 #screen {
     width: 960px;
     height: 720px;
@@ -36,23 +38,25 @@ body.mobile-mode {
     flex-shrink: 0;
 }
 
+/* Scanline Overlay Effect */
 #screen::after {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
-                 linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
     background-size: 100% 4px, 6px 100%;
     pointer-events: none;
     z-index: 900;
 }
 
+/* --- GAME AREA & WORLD --- */
 #game-area {
     width: 960px;
     height: 720px;
     position: relative;
     overflow: hidden;
-    background-color: #87CEEB;
+    background-color: #87CEEB; /* Sky Blue */
 }
 
 #world {
@@ -62,6 +66,7 @@ body.mobile-mode {
     height: 300%;
 }
 
+/* --- HUD --- */
 #hud {
     position: absolute;
     top: 10px; left: 10px; right: 10px;
@@ -81,21 +86,24 @@ body.mobile-mode {
 #p1-gp-status { color: #FFD700; font-size: 12px; }
 #p2-gp-status { color: mediumorchid; font-size: 12px; }
 
-#fps-counter {
+#fps-counter { 
     position: absolute;
     right: 10px;
     top: 80px;
-    font-size: 14px;
-    color: #FFF;
+    font-size: 14px; 
+    color: #FFF; 
     text-align: right;
 }
 
 #dev-mode-indicator { color: red; position: absolute; top: 40px; left: 50%; transform: translateX(-50%); }
 
+/* --- GAME OBJECTS --- */
 .game-object { position: absolute; font-size: 40px; will-change: transform; }
 .player { z-index: 10; font-size: 40px; }
+
 .player-1-glow { filter: drop-shadow(0 0 10px gold) drop-shadow(0 0 10px gold) drop-shadow(0 0 10px gold); }
 .player-2-glow { filter: drop-shadow(0 0 10px mediumorchid) drop-shadow(0 0 10px mediumorchid) drop-shadow(0 0 10px mediumorchid); }
+
 .platform { color: #228B22; }
 .thorn { color: #696969; }
 .flower { z-index: 5; }
@@ -108,6 +116,7 @@ body.mobile-mode {
 .hitbox { position: absolute; border: 1px solid red; background: rgba(255,0,0,0.2); z-index: 999; }
 .hidden { display: none !important; }
 
+/* --- MENUS --- */
 #message-screen, #level-message-screen, #help-screen {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -136,8 +145,6 @@ body.mobile-mode {
     text-align: left;
     color: #FFD700;
     font-size: 14px;
-    width: 100%;
-    max-width: 400px;
 }
 
 .settings-row {
@@ -145,25 +152,6 @@ body.mobile-mode {
     align-items: center;
     gap: 15px;
     cursor: pointer;
-    width: 100%;
-}
-
-#volume-slider {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 10px;
-    background: #333;
-    outline: none;
-    border: 2px solid white;
-}
-
-#volume-slider::-webkit-slider-thumb, #volume-slider::-moz-range-thumb {
-    -webkit-appearance: none;
-    width: 25px;
-    height: 25px;
-    background: #4CAF50;
-    cursor: pointer;
-    border: 2px solid white;
 }
 
 .settings-row label {
@@ -179,29 +167,13 @@ body.mobile-mode {
     cursor: pointer;
 }
 
-.retro-select {
+#speed-select, #audio-select {
     font-family: var(--retro-font);
     background: #333;
     color: white;
     border: 2px solid white;
     padding: 8px;
     cursor: pointer;
-    font-size: 12px;
-}
-
-.help-footer {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    max-width: 400px;
-    margin-top: 20px;
-}
-
-#game-version {
-    font-size: 10px;
-    color: #888;
 }
 
 button {
@@ -237,7 +209,7 @@ body.mobile-mode #mobile-btn { display: none; }
 #mobile-controls {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none;
+    pointer-events: none; 
     z-index: 3000;
     display: none;
     justify-content: space-between;
@@ -266,10 +238,19 @@ body.mobile-mode #mobile-controls {
     -webkit-tap-highlight-color: transparent;
 }
 
-.mobile-control-btn:active {
-    background: rgba(255,255,255,0.4);
+.mobile-control-btn:active { 
+    background: rgba(255,255,255,0.4); 
     transform: scale(0.95);
 }
 
-#mobile-dpad { display: flex; gap: 5px; margin-left: 20px; margin-bottom: 20px; }
-#mobile-action { margin-right: 40px; margin-bottom: 40px; }
+#mobile-dpad { 
+    display: flex; 
+    gap: 5px;
+    margin-left: 20px;
+    margin-bottom: 20px;
+}
+
+#mobile-action { 
+    margin-right: 40px; 
+    margin-bottom: 40px;
+}

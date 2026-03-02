@@ -1,15 +1,63 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- AUDIO SYSTEM SETUP ---
-    // FIX: Added { latencyHint: 'interactive' } to remove the delay
+    // 1. Force 'interactive' latency
+    // 2. Allow browser to choose native sample rate (prevents resampling lag)
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    const audioContext = new AudioContextClass({ latencyHint: 'interactive' });
-    
+    const audioContext = new AudioContextClass({ 
+        latencyHint: 'interactive',
+        sampleRate: 44100 // Common native rate for Android, reduces resampling overhead
+    });
+
+    // --- ANDROID LAG FIX: THE SILENCE KEEPER ---
+    // We play a silent sound continuously to stop Android from powering down the audio hardware.
+    let audioUnlocked = false;
+
+    function unlockAudio() {
+        if (audioUnlocked) return;
+
+        // Resume the context if suspended (Chrome policy)
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        // Create an empty buffer source (0.1 seconds of silence)
+        const buffer = audioContext.createBuffer(1, 1, 22050);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+
+        // --- THE KEY FIX FOR ANDROID ---
+        // Create an oscillator that plays absolute silence continuously.
+        // This keeps the audio thread active/hot.
+        const idler = audioContext.createOscillator();
+        const idlerGain = audioContext.createGain();
+        idlerGain.gain.value = 0.001; // Extremely low volume (inaudible but active)
+        idler.connect(idlerGain);
+        idlerGain.connect(audioContext.destination);
+        idler.start(0);
+        
+        console.log("Audio unlocked and hardware warmed up.");
+        audioUnlocked = true;
+
+        // Remove listeners so we don't do this again
+        ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(event => {
+            document.body.removeEventListener(event, unlockAudio);
+        });
+    }
+
+    // Attach unlock to EVERY interaction type to ensure we catch the first one
+    ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(event => {
+        document.body.addEventListener(event, unlockAudio, { once: true });
+    });
+
+    // --- Audio Nodes Setup ---
     const limiter = audioContext.createDynamicsCompressor();
     limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
     limiter.connect(audioContext.destination);
 
-    // Generate White Noise Buffer (Pre-calculated for speed)
-    const bufferSize = audioContext.sampleRate * 2; // 2 seconds buffer
+    // Generate White Noise Buffer (Pre-calculated)
+    const bufferSize = audioContext.sampleRate * 2; 
     const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
     const data = noiseBuffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
@@ -17,24 +65,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function finalVolume() {
-        return 0.2; // Master volume
+        return 0.2; 
     }
 
     // --- Sound Effects Logic ---
     let isTinkNext = true;
 
     function playFlowerSound() {
-        // Ensure context is running (sometimes it suspends in background tabs)
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
+        // Just in case unlock failed earlier
+        if (audioContext.state === 'suspended') audioContext.resume();
 
         if (isTinkNext) {
             playTink();
         } else {
             playTonk();
         }
-        isTinkNext = !isTinkNext; // Toggle for next time
+        isTinkNext = !isTinkNext; 
     }
 
     function playTink() {
@@ -47,11 +93,11 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.frequency.setValueAtTime(1500, now);
         osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
         
-        // Attack is instant (0), Decay is fast
+        // Instant attack
         gain.gain.setValueAtTime(1.5 * finalVolume(), now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
         
-        // Noise (Chiff)
+        // Noise
         const noise = audioContext.createBufferSource();
         noise.buffer = noiseBuffer;
         const noiseFilter = audioContext.createBiquadFilter();
@@ -61,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
         noiseGain.gain.setValueAtTime(0.5 * finalVolume(), now);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
         
-        // Connect Graph
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(limiter);
@@ -69,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.connect(gain);
         gain.connect(limiter);
         
-        // Start Immediately
         osc.start(now);
         osc.stop(now + 0.1);
         noise.start(now);
@@ -93,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
         filter.type = 'bandpass';
         filter.frequency.value = 600;
         
-        // Noise (Chiff)
         const noise = audioContext.createBufferSource();
         noise.buffer = noiseBuffer;
         const noiseFilter = audioContext.createBiquadFilter();
@@ -103,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
         noiseGain.gain.setValueAtTime(1 * finalVolume(), now);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
         
-        // Connect Graph
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(limiter);
@@ -112,7 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
         filter.connect(gain);
         gain.connect(limiter);
         
-        // Start Immediately
         osc.start(now);
         osc.stop(now + 0.2);
         noise.start(now);
@@ -173,6 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function goFull() {
+        unlockAudio(); // Try to unlock on fullscreen button press too
         const el = document.documentElement;
         if (el.requestFullscreen) el.requestFullscreen();
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
@@ -260,11 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startGame() {
-        // Resume Audio Context on user interaction to ensure it's "warmed up"
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-
+        unlockAudio(); // Ensure audio is unlocked on start click
         resetGame();
         messageScreen.classList.add('hidden');
         p2ScoreEl.classList.add('hidden');
@@ -932,6 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pressKey = (e) => {
                 e.preventDefault();
                 keys[key] = true;
+                unlockAudio(); // Important: unlocking audio on touch events
             };
             const releaseKey = (e) => {
                 e.preventDefault();

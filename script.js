@@ -1,157 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- VERSION CONTROL ---
-    const CURRENT_VERSION = '1.1';
+    const CURRENT_VERSION = '1.2';
     document.getElementById('game-version').textContent = `v${CURRENT_VERSION}`;
 
-    // --- AUDIO SYSTEM SETUP ---
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    const audioContext = new AudioContextClass({ 
-        latencyHint: 'interactive',
-        sampleRate: 44100 
-    });
-
-    // Master Gain Node (Volume Control)
-    const masterGain = audioContext.createGain();
-    masterGain.gain.value = 0.5; // Default 50%
-
-    const limiter = audioContext.createDynamicsCompressor();
-    limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
-    
-    // Audio Graph: Sources -> MasterGain -> Limiter -> Destination
-    masterGain.connect(limiter);
-    limiter.connect(audioContext.destination);
-
-    // --- ANDROID LATENCY FIX (Silence Loop) ---
-    let audioUnlocked = false;
-
-    function unlockAudio() {
-        if (audioUnlocked) return;
-
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-
-        // Buffer silence (triggers hardware)
-        const buffer = audioContext.createBuffer(1, 1, 22050);
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.start(0);
-
-        // Continuous Oscillator (keeps hardware hot)
-        const idler = audioContext.createOscillator();
-        const idlerGain = audioContext.createGain();
-        idlerGain.gain.value = 0.001; // Inaudible
-        idler.connect(idlerGain);
-        idlerGain.connect(audioContext.destination);
-        idler.start(0);
-        
-        console.log("Audio Unlocked (Silence Loop Active)");
-        audioUnlocked = true;
-
-        // Clean up listeners
-        ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'].forEach(event => {
-            document.body.removeEventListener(event, unlockAudio);
-        });
-    }
-
-    // Attach unlock to essentially everything to catch the first interaction
-    ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'].forEach(event => {
-        document.body.addEventListener(event, unlockAudio, { once: true, capture: true });
-    });
-
-    // --- White Noise Buffer ---
-    const bufferSize = audioContext.sampleRate * 2; 
-    const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-    }
-
-    // --- Sound Effects ---
-    let isTinkNext = true;
-
-    function playFlowerSound() {
-        if (isTinkNext) playTink();
-        else playTonk();
-        isTinkNext = !isTinkNext; 
-    }
-
-    function playTink() {
-        const now = audioContext.currentTime;
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1500, now);
-        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
-        
-        gain.gain.setValueAtTime(1.5, now); // Volume handled by MasterGain now
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        
-        const noise = audioContext.createBufferSource();
-        noise.buffer = noiseBuffer;
-        const noiseFilter = audioContext.createBiquadFilter();
-        noiseFilter.type = 'highpass';
-        noiseFilter.frequency.value = 2000;
-        const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(0.5, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        
-        // Connect to MasterGain instead of Destination directly
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(masterGain);
-
-        osc.connect(gain);
-        gain.connect(masterGain);
-        
-        osc.start(now);
-        osc.stop(now + 0.1);
-        noise.start(now);
-        noise.stop(now + 0.05);
-    }
-    
-    function playTonk() {
-        const now = audioContext.currentTime;
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(450, now);
-        osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
-        
-        gain.gain.setValueAtTime(2.0, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-        
-        const filter = audioContext.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 600;
-        
-        const noise = audioContext.createBufferSource();
-        noise.buffer = noiseBuffer;
-        const noiseFilter = audioContext.createBiquadFilter();
-        noiseFilter.type = 'bandpass';
-        noiseFilter.frequency.value = 800;
-        const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(1.0, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(masterGain);
-        
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(masterGain);
-        
-        osc.start(now);
-        osc.stop(now + 0.2);
-        noise.start(now);
-        noise.stop(now + 0.05);
-    }
-
-    // --- Element Selectors ---
+    // --- ELEMENT SELECTORS ---
     const gameArea = document.getElementById('game-area');
     const world = document.getElementById('world');
     const p1ScoreEl = document.getElementById('p1-score');
@@ -171,14 +23,263 @@ document.addEventListener('DOMContentLoaded', () => {
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
     
-    // --- Settings Selectors ---
+    // --- SETTINGS SELECTORS ---
     const speedSelect = document.getElementById('speed-select');
+    const audioModeSelect = document.getElementById('audio-mode');
     const volumeSlider = document.getElementById('volume-slider');
     const volumeValueEl = document.getElementById('volume-value');
     const fpsCounterEl = document.getElementById('fps-counter');
     const toggleFpsCheckbox = document.getElementById('toggle-fps');
     const lockFpsCheckbox = document.getElementById('lock-fps');
+
+    // --- AUDIO SYSTEM SETUP ---
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContextClass({ 
+        latencyHint: 'interactive',
+        sampleRate: 44100 
+    });
+
+    const masterGain = audioContext.createGain();
+    masterGain.gain.value = 0.5; // Default 50%
+
+    const limiter = audioContext.createDynamicsCompressor();
+    limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
     
+    // Graph: Sources -> MasterGain -> Limiter -> Destination
+    masterGain.connect(limiter);
+    limiter.connect(audioContext.destination);
+
+    // Audio State
+    let useBufferedAudio = true; // Default to Pre-rendered
+    let tinkBuffer = null;
+    let tonkBuffer = null;
+    let isTinkNext = true;
+    let proceduralNoiseBuffer = null; // Used for realtime synth
+
+    // --- UTILITY: Generate Noise Buffer ---
+    // Creates 2 seconds of white noise for use in synthesis
+    function createNoiseBuffer(ctx) {
+        const bufferSize = ctx.sampleRate * 2;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        return buffer;
+    }
+
+    // Initialize Procedural Noise Buffer
+    proceduralNoiseBuffer = createNoiseBuffer(audioContext);
+
+    // --- CORE: PRE-RENDERING LOGIC (OfflineAudioContext) ---
+    // Renders complex synth patches into static memory buffers
+    async function createSoundBuffer(duration, buildGraphCallback) {
+        // Create an offline context
+        const offlineCtx = new OfflineAudioContext(1, 44100 * duration, 44100);
+        
+        // Create a temp master for this render
+        const tempMaster = offlineCtx.createGain();
+        tempMaster.connect(offlineCtx.destination);
+        
+        // Helper to generate noise inside the offline context
+        const offlineNoiseBuffer = createNoiseBuffer(offlineCtx);
+
+        // Run the synth logic
+        buildGraphCallback(offlineCtx, tempMaster, offlineNoiseBuffer);
+
+        // Render to buffer
+        return await offlineCtx.startRendering();
+    }
+
+    async function preloadGameSounds() {
+        console.log("Pre-rendering audio buffers...");
+
+        // 1. TINK BUFFER
+        tinkBuffer = await createSoundBuffer(0.2, (ctx, master, noiseBuf) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1500, 0);
+            osc.frequency.exponentialRampToValueAtTime(800, 0.1);
+            gain.gain.setValueAtTime(1.5, 0);
+            gain.gain.exponentialRampToValueAtTime(0.001, 0.1);
+            osc.connect(gain);
+            gain.connect(master);
+            osc.start(0);
+
+            // Add Noise Chiff
+            const noise = ctx.createBufferSource();
+            noise.buffer = noiseBuf;
+            const noiseFilter = ctx.createBiquadFilter();
+            noiseFilter.type = 'highpass';
+            noiseFilter.frequency.value = 2000;
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.5, 0);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, 0.05);
+            noise.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(master);
+            noise.start(0);
+        });
+
+        // 2. TONK BUFFER
+        tonkBuffer = await createSoundBuffer(0.3, (ctx, master, noiseBuf) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(450, 0);
+            osc.frequency.exponentialRampToValueAtTime(200, 0.2);
+            filter.type = 'bandpass';
+            filter.frequency.value = 600;
+            gain.gain.setValueAtTime(2.0, 0);
+            gain.gain.exponentialRampToValueAtTime(0.001, 0.2);
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(master);
+            osc.start(0);
+
+            // Add Noise Chiff
+            const noise = ctx.createBufferSource();
+            noise.buffer = noiseBuf;
+            const noiseFilter = ctx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.value = 800;
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(1.0, 0);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, 0.05);
+            noise.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(master);
+            noise.start(0);
+        });
+
+        console.log("Audio buffers ready.");
+    }
+
+    // --- ANDROID LATENCY FIX (Silence Loop) ---
+    let audioUnlocked = false;
+
+    function unlockAudio() {
+        if (audioUnlocked) return;
+
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        const buffer = audioContext.createBuffer(1, 1, 22050);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+
+        const idler = audioContext.createOscillator();
+        const idlerGain = audioContext.createGain();
+        idlerGain.gain.value = 0.001; 
+        idler.connect(idlerGain);
+        idlerGain.connect(audioContext.destination);
+        idler.start(0);
+        
+        console.log("Audio Unlocked (Silence Loop Active)");
+        audioUnlocked = true;
+
+        ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'].forEach(event => {
+            document.body.removeEventListener(event, unlockAudio);
+        });
+        
+        // Preload sounds now that context is live
+        preloadGameSounds();
+    }
+
+    ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'].forEach(event => {
+        document.body.addEventListener(event, unlockAudio, { once: true, capture: true });
+    });
+
+
+    // --- PLAYBACK ROUTER ---
+    function playFlowerSound() {
+        if (isTinkNext) {
+            useBufferedAudio ? playBuffer(tinkBuffer) : playTinkProcedural();
+        } else {
+            useBufferedAudio ? playBuffer(tonkBuffer) : playTonkProcedural();
+        }
+        isTinkNext = !isTinkNext; 
+    }
+
+    // Method A: Pre-rendered (Zero Cost)
+    function playBuffer(buffer) {
+        if (!buffer) return;
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(masterGain);
+        source.start(0);
+    }
+
+    // Method B: Procedural (Real-time Synth) - Legacy
+    function playTinkProcedural() {
+        const now = audioContext.currentTime;
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1500, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+        gain.gain.setValueAtTime(1.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        
+        const noise = audioContext.createBufferSource();
+        noise.buffer = proceduralNoiseBuffer;
+        const noiseFilter = audioContext.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.value = 2000;
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0.5, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(masterGain);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.1);
+        noise.start(now);
+        noise.stop(now + 0.05);
+    }
+    
+    function playTonkProcedural() {
+        const now = audioContext.currentTime;
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(450, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+        gain.gain.setValueAtTime(2.0, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 600;
+        
+        const noise = audioContext.createBufferSource();
+        noise.buffer = proceduralNoiseBuffer;
+        const noiseFilter = audioContext.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 800;
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(1.0, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(masterGain);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.2);
+        noise.start(now);
+        noise.stop(now + 0.05);
+    }
+
     // --- Mobile Control Selectors ---
     const mobileControls = document.getElementById('mobile-controls');
     const mobileLeftBtn = document.getElementById('mobile-left');
@@ -946,10 +1047,15 @@ document.addEventListener('DOMContentLoaded', () => {
     volumeSlider.addEventListener('input', (e) => {
         const val = parseInt(e.target.value);
         volumeValueEl.textContent = `${val}%`;
-        // Convert 0-100 scale to 0.0-1.0 scale
         if (masterGain) {
             masterGain.gain.value = val / 100;
         }
+    });
+
+    // Audio Mode Listener
+    audioModeSelect.addEventListener('change', (e) => {
+        useBufferedAudio = (e.target.value === 'buffered');
+        console.log(`Audio Mode switched to: ${useBufferedAudio ? 'Pre-rendered' : 'Real-time'}`);
     });
 
     toggleFpsCheckbox.addEventListener('change', (e) => {

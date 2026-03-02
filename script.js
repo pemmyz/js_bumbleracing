@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- VERSION CONTROL ---
-    const CURRENT_VERSION = '1.3';
+    const CURRENT_VERSION = '1.5';
     document.getElementById('game-version').textContent = `v${CURRENT_VERSION}`;
 
     // --- ELEMENT SELECTORS ---
@@ -18,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const helpScreen = document.getElementById('help-screen');
     const helpButton = document.getElementById('help-button');
     const closeHelpButton = document.getElementById('close-help-button');
+    const restartGameButton = document.getElementById('restart-game-button'); // NEW
     const devIndicator = document.getElementById('dev-mode-indicator');
     const externalHelpButton = document.getElementById('external-help-button');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
@@ -25,36 +25,55 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- SETTINGS SELECTORS ---
     const speedSelect = document.getElementById('speed-select');
-    const audioModeSelect = document.getElementById('audio-mode');
+    const audioEngineSelect = document.getElementById('audio-engine');
+    const latencyHintSelect = document.getElementById('latency-hint');
     const volumeSlider = document.getElementById('volume-slider');
     const volumeValueEl = document.getElementById('volume-value');
     const fpsCounterEl = document.getElementById('fps-counter');
     const toggleFpsCheckbox = document.getElementById('toggle-fps');
     const lockFpsCheckbox = document.getElementById('lock-fps');
 
-    // --- SOUND ENGINE CLASS (Modular & Optimized) ---
+    // --- SOUND ENGINE ---
     class SoundEngine {
         constructor() {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            this.ctx = new AudioContextClass({ latencyHint: 'interactive', sampleRate: 44100 });
-            
-            this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.value = 0.5;
-            
-            this.limiter = this.ctx.createDynamicsCompressor();
-            this.limiter.threshold.setValueAtTime(-10, this.ctx.currentTime);
-            
-            // Connection Graph: Source -> Master -> Limiter -> Speaker
-            this.masterGain.connect(this.limiter);
-            this.limiter.connect(this.ctx.destination);
-            
+            this.mode = 'buffered'; // 'buffered' | 'realtime'
+            this.latencyHint = 'interactive';
+            this.ctx = null;
+            this.masterGain = null;
+            this.limiter = null;
             this.buffers = { tink: null, tonk: null };
-            this.noiseBuffer = this.createNoiseBuffer(this.ctx);
+            this.noiseBuffer = null;
             this.isTinkNext = true;
-            this.audioUnlocked = false;
-            this.useBufferedAudio = true;
+            this.unlocked = false;
+
+            this.initContext();
         }
 
+        initContext() {
+            if (this.ctx) {
+                this.ctx.close();
+            }
+
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContextClass({ 
+                latencyHint: this.latencyHint,
+                sampleRate: 44100
+            });
+
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.value = 0.5;
+
+            this.limiter = this.ctx.createDynamicsCompressor();
+            this.limiter.threshold.setValueAtTime(-10, this.ctx.currentTime);
+
+            this.masterGain.connect(this.limiter);
+            this.limiter.connect(this.ctx.destination);
+
+            // Create global noise buffer for realtime mode
+            this.noiseBuffer = this.createNoiseBuffer(this.ctx);
+        }
+
+        // Helper: Create 2s of White Noise
         createNoiseBuffer(ctx) {
             const bufferSize = ctx.sampleRate * 2;
             const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -65,182 +84,187 @@ document.addEventListener('DOMContentLoaded', () => {
             return buffer;
         }
 
-        // --- PRE-RENDERING LOGIC (OfflineAudioContext) ---
-        // Generates buffers in the background to avoid CPU cost during play
-        async createSoundBuffer(duration, buildGraphCallback) {
-            const sampleRate = 44100;
-            const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+        // --- OFFLINE RENDERING (The "Zero Cost" Strategy) ---
+        async createOfflineBuffer(duration, renderCallback) {
+            const offlineCtx = new OfflineAudioContext(1, 44100 * duration, 44100);
             const master = offlineCtx.createGain();
             master.connect(offlineCtx.destination);
             
-            // Helper for offline context noise
-            const offlineNoise = this.createNoiseBuffer(offlineCtx);
-
-            buildGraphCallback(offlineCtx, master, offlineNoise);
-
+            // Generate temp noise for offline context
+            const noise = this.createNoiseBuffer(offlineCtx);
+            
+            renderCallback(offlineCtx, master, noise);
+            
             return await offlineCtx.startRendering();
         }
 
         async preloadSounds() {
-            console.log("Pre-rendering audio buffers (Zero Cost Mode)...");
+            console.log("🔊 Generating Audio Buffers in Background...");
 
-            this.buffers.tink = await this.createSoundBuffer(0.2, (ctx, master, noiseBuf) => {
+            // 1. Tink (Sine + Noise)
+            this.buffers.tink = await this.createOfflineBuffer(0.2, (ctx, out, noiseBuf) => {
                 const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(1500, 0);
+                osc.frequency.value = 1500;
                 osc.frequency.exponentialRampToValueAtTime(800, 0.1);
-                gain.gain.setValueAtTime(1.5, 0);
-                gain.gain.exponentialRampToValueAtTime(0.001, 0.1);
-                osc.connect(gain);
-                gain.connect(master);
-                osc.start(0);
-                osc.stop(0.1);
+                
+                const env = ctx.createGain();
+                env.gain.setValueAtTime(1.5, 0);
+                env.gain.exponentialRampToValueAtTime(0.001, 0.1);
 
-                // Add Noise Chiff
-                const noise = ctx.createBufferSource();
-                noise.buffer = noiseBuf;
-                const noiseFilter = ctx.createBiquadFilter();
-                noiseFilter.type = 'highpass';
-                noiseFilter.frequency.value = 2000;
-                const noiseGain = ctx.createGain();
-                noiseGain.gain.setValueAtTime(0.5, 0);
-                noiseGain.gain.exponentialRampToValueAtTime(0.001, 0.05);
-                noise.connect(noiseFilter);
-                noiseFilter.connect(noiseGain);
-                noiseGain.connect(master);
-                noise.start(0);
-                noise.stop(0.05);
+                osc.connect(env).connect(out);
+                osc.start(0);
+
+                // Noise Chiff
+                const src = ctx.createBufferSource();
+                src.buffer = noiseBuf;
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 2000;
+                const nEnv = ctx.createGain();
+                nEnv.gain.setValueAtTime(0.5, 0);
+                nEnv.gain.exponentialRampToValueAtTime(0.001, 0.05);
+                
+                src.connect(filter).connect(nEnv).connect(out);
+                src.start(0);
             });
 
-            this.buffers.tonk = await this.createSoundBuffer(0.3, (ctx, master, noiseBuf) => {
+            // 2. Tonk (Triangle + Bandpass + Noise)
+            this.buffers.tonk = await this.createOfflineBuffer(0.3, (ctx, out, noiseBuf) => {
                 const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                const filter = ctx.createBiquadFilter();
                 osc.type = 'triangle';
-                osc.frequency.setValueAtTime(450, 0);
+                osc.frequency.value = 450;
                 osc.frequency.exponentialRampToValueAtTime(200, 0.2);
+
+                const filter = ctx.createBiquadFilter();
                 filter.type = 'bandpass';
                 filter.frequency.value = 600;
-                gain.gain.setValueAtTime(2.0, 0);
-                gain.gain.exponentialRampToValueAtTime(0.001, 0.2);
-                osc.connect(filter);
-                filter.connect(gain);
-                gain.connect(master);
-                osc.start(0);
-                osc.stop(0.2);
 
-                // Add Noise Chiff
-                const noise = ctx.createBufferSource();
-                noise.buffer = noiseBuf;
-                const noiseFilter = ctx.createBiquadFilter();
-                noiseFilter.type = 'bandpass';
-                noiseFilter.frequency.value = 800;
-                const noiseGain = ctx.createGain();
-                noiseGain.gain.setValueAtTime(1.0, 0);
-                noiseGain.gain.exponentialRampToValueAtTime(0.001, 0.05);
-                noise.connect(noiseFilter);
-                noiseFilter.connect(noiseGain);
-                noiseGain.connect(master);
-                noise.start(0);
-                noise.stop(0.05);
+                const env = ctx.createGain();
+                env.gain.setValueAtTime(2.0, 0);
+                env.gain.exponentialRampToValueAtTime(0.001, 0.2);
+
+                osc.connect(filter).connect(env).connect(out);
+                osc.start(0);
+
+                // Noise Chiff
+                const src = ctx.createBufferSource();
+                src.buffer = noiseBuf;
+                const nFilter = ctx.createBiquadFilter();
+                nFilter.type = 'bandpass';
+                nFilter.frequency.value = 800;
+                const nEnv = ctx.createGain();
+                nEnv.gain.setValueAtTime(1.0, 0);
+                nEnv.gain.exponentialRampToValueAtTime(0.001, 0.05);
+
+                src.connect(nFilter).connect(nEnv).connect(out);
+                src.start(0);
             });
 
-            console.log("Sounds preloaded into memory.");
+            console.log("✅ Audio Buffers Ready.");
         }
 
-        // --- SILENCE LOOP (Android Fix) ---
+        // --- PLAYBACK ---
+        playFlower() {
+            if (this.mode === 'buffered') {
+                this.isTinkNext ? this.playBuffer(this.buffers.tink) : this.playBuffer(this.buffers.tonk);
+            } else {
+                this.isTinkNext ? this.playTinkRealtime() : this.playTonkRealtime();
+            }
+            this.isTinkNext = !this.isTinkNext;
+        }
+
+        playBuffer(buffer) {
+            if (!buffer) return;
+            const source = this.ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(this.masterGain);
+            source.start(0);
+        }
+
+        playTinkRealtime() {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            osc.frequency.setValueAtTime(1500, now);
+            osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+            
+            const env = this.ctx.createGain();
+            env.gain.setValueAtTime(1.5, now);
+            env.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+            osc.connect(env).connect(this.masterGain);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        }
+
+        playTonkRealtime() {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(450, now);
+            osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+            
+            const env = this.ctx.createGain();
+            env.gain.setValueAtTime(2.0, now);
+            env.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+            osc.connect(env).connect(this.masterGain);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        }
+
+        // --- SETTINGS ---
+        setVolume(val) {
+            this.masterGain.gain.value = val;
+        }
+
+        setMode(mode) {
+            this.mode = mode;
+            console.log(`Audio Mode: ${mode}`);
+        }
+
+        setLatencyHint(hint) {
+            if (hint === this.latencyHint) return;
+            this.latencyHint = hint;
+            console.log(`Latency Hint Changed to: ${hint}. Rebooting Audio...`);
+            this.initContext();
+            this.unlocked = false; // Need to re-unlock
+            this.unlock(); // Try immediate unlock
+        }
+
+        // --- UNLOCK (Silence Loop) ---
         unlock() {
-            if (this.audioUnlocked) return;
+            if (this.unlocked) return;
+            
             if (this.ctx.state === 'suspended') this.ctx.resume();
 
-            // 1. One-shot buffer trigger
+            // 1. Empty buffer shot
             const buffer = this.ctx.createBuffer(1, 1, 22050);
             const source = this.ctx.createBufferSource();
             source.buffer = buffer;
             source.connect(this.ctx.destination);
             source.start(0);
 
-            // 2. Continuous silent oscillator (Keeps hardware hot)
+            // 2. Silent Oscillator (The Keeper)
             const idler = this.ctx.createOscillator();
             const idlerGain = this.ctx.createGain();
             idlerGain.gain.value = 0.001; 
-            idler.connect(idlerGain);
-            idlerGain.connect(this.ctx.destination);
+            idler.connect(idlerGain).connect(this.ctx.destination);
             idler.start(0);
 
-            this.audioUnlocked = true;
-            console.log("Audio Unlocked & Hardware Warm.");
-            
-            this.preloadSounds();
-        }
+            this.unlocked = true;
+            console.log("🔓 Audio Unlocked.");
 
-        // --- PLAYBACK ---
-        playFlowerSound() {
-            if (this.isTinkNext) {
-                this.useBufferedAudio ? this.playBuffer(this.buffers.tink) : this.playTinkSynth();
-            } else {
-                this.useBufferedAudio ? this.playBuffer(this.buffers.tonk) : this.playTonkSynth();
-            }
-            this.isTinkNext = !this.isTinkNext;
-        }
-
-        // FAST PATH: Zero Generation Cost
-        playBuffer(buffer) {
-            if (!buffer) return;
-            const source = this.ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(this.masterGain);
-            source.start(0); // Fires on background audio thread
-        }
-
-        // SLOW PATH: Real-time Synthesis (Legacy)
-        playTinkSynth() {
-            const now = this.ctx.currentTime;
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(1500, now);
-            osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
-            gain.gain.setValueAtTime(1.5, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-            osc.connect(gain);
-            gain.connect(this.masterGain);
-            osc.start(now);
-            osc.stop(now + 0.1);
-        }
-
-        playTonkSynth() {
-            const now = this.ctx.currentTime;
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(450, now);
-            osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
-            gain.gain.setValueAtTime(2.0, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-            osc.connect(gain);
-            gain.connect(this.masterGain);
-            osc.start(now);
-            osc.stop(now + 0.2);
-        }
-
-        setVolume(val) {
-            this.masterGain.gain.value = val;
-        }
-
-        setMode(isBuffered) {
-            this.useBufferedAudio = isBuffered;
+            // Generate buffers now that we are live
+            if (!this.buffers.tink) this.preloadSounds();
         }
     }
 
-    // --- INSTANTIATE SOUND ENGINE ---
     const soundEngine = new SoundEngine();
 
-    // Attach Unlock Listeners
-    ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'].forEach(event => {
-        document.body.addEventListener(event, () => soundEngine.unlock(), { once: true, capture: true });
-    });
+    // --- INTERACTION HANDLERS ---
+    const events = ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'];
+    events.forEach(e => document.body.addEventListener(e, () => soundEngine.unlock(), { once: true, capture: true }));
 
     // --- SETTINGS LISTENERS ---
     volumeSlider.addEventListener('input', (e) => {
@@ -249,18 +273,39 @@ document.addEventListener('DOMContentLoaded', () => {
         soundEngine.setVolume(val / 100);
     });
 
-    audioModeSelect.addEventListener('change', (e) => {
-        soundEngine.setMode(e.target.value === 'buffered');
+    audioEngineSelect.addEventListener('change', (e) => {
+        soundEngine.setMode(e.target.value);
     });
 
-    // --- MOBILE CONTROLS ---
+    latencyHintSelect.addEventListener('change', (e) => {
+        soundEngine.setLatencyHint(e.target.value);
+    });
+
+    speedSelect.addEventListener('change', (e) => {
+        gameSpeed = parseFloat(e.target.value);
+    });
+
+    toggleFpsCheckbox.addEventListener('change', (e) => {
+        showFps = e.target.checked;
+        fpsCounterEl.classList.toggle('hidden', !showFps);
+        if (showFps) {
+            framesThisSecond = 0;
+            lastFpsUpdateTime = performance.now();
+        }
+    });
+
+    lockFpsCheckbox.addEventListener('change', (e) => {
+        lockFps = e.target.checked;
+        lastRenderTime = performance.now(); 
+    });
+
+    // --- Mobile Controls ---
     const mobileControls = document.getElementById('mobile-controls');
     const mobileLeftBtn = document.getElementById('mobile-left');
     const mobileRightBtn = document.getElementById('mobile-right');
     const mobileUpBtn = document.getElementById('mobile-up');
     const mobileToggleBtn = document.getElementById('mobile-btn');
 
-    // --- Scaling Logic & Mobile Mode ---
     function scaleGame() {
         const screen = document.getElementById("screen");
         const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
@@ -817,7 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function collectFlower(flower, index, player) {
-        soundEngine.playFlowerSound();
+        soundEngine.playFlower();
 
         flower.el.remove();
         if (flower.hitboxEl) flower.hitboxEl.remove();
@@ -1008,11 +1053,33 @@ document.addEventListener('DOMContentLoaded', () => {
     helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
     externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
+    
+    // NEW GAME BUTTON LISTENER
+    restartGameButton.addEventListener('click', () => {
+        helpScreen.classList.add('hidden');
+        startGame(); // Resets state and starts fresh
+    });
+
     mobileToggleBtn.addEventListener('click', goFull);
 
     speedSelect.addEventListener('change', (e) => {
         gameSpeed = parseFloat(e.target.value);
         console.log(`Game speed updated to: ${gameSpeed}x`);
+    });
+
+    // Volume Slider Listener
+    volumeSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        volumeValueEl.textContent = `${val}%`;
+        if (masterGain) {
+            masterGain.gain.value = val / 100;
+        }
+    });
+
+    // Audio Mode Listener
+    audioModeSelect.addEventListener('change', (e) => {
+        useBufferedAudio = (e.target.value === 'buffered');
+        console.log(`Audio Mode switched to: ${useBufferedAudio ? 'Pre-rendered' : 'Real-time'}`);
     });
 
     toggleFpsCheckbox.addEventListener('change', (e) => {

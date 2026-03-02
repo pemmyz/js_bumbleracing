@@ -1,4 +1,4 @@
-// v1.6.2
+// v1.6.3 - Mobile Audio Hotfix
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -51,8 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
             this.mode = 'buffered'; 
             this.latencyHint = 'interactive';
             this.noiseGenMode = 'offline';
-            this.processingMode = 'worklet'; // Set default to worklet
-            this.useBufferPool = true; // Syncing to optimized default setting
+            this.processingMode = 'worklet'; 
+            this.useBufferPool = true; 
             
             this.ctx = null;
             this.masterGain = null;
@@ -77,13 +77,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (this.ctx) this.ctx.close();
 
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            
+            // Fix 1: Removed hardcoded 44100 sample rate to prevent crash on Mobile Android hardware
             this.ctx = new AudioContextClass({ 
-                latencyHint: this.latencyHint,
-                sampleRate: 44100
+                latencyHint: this.latencyHint
             });
 
             this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.value = 0.5;
+            this.masterGain.gain.value = parseInt(volumeSlider.value) / 100;
 
             this.limiter = this.ctx.createDynamicsCompressor();
             this.limiter.threshold.setValueAtTime(-10, this.ctx.currentTime);
@@ -91,29 +92,44 @@ document.addEventListener('DOMContentLoaded', () => {
             this.masterGain.connect(this.limiter);
             this.limiter.connect(this.ctx.destination);
 
-            if (this.processingMode === 'worklet' && this.ctx.audioWorklet) {
-                console.log("⚡ AudioWorklet pipeline requested.");
-                try {
-                    await this.ctx.audioWorklet.addModule('flower-worklet.js');
-                    this.workletNode = new AudioWorkletNode(this.ctx, 'flower-processor');
-                    this.workletNode.connect(this.masterGain);
-                    console.log("✅ AudioWorklet successfully loaded and connected.");
-                } catch(e) {
-                    console.error("AudioWorklet failed to load, falling back to standard thread.", e);
-                    this.processingMode = 'standard';
+            // Fix 2: Bulletproof AudioWorklet initialization with explicit state transition
+            if (this.processingMode === 'worklet') {
+                if (this.ctx.audioWorklet) {
+                    try {
+                        await this.ctx.audioWorklet.addModule('flower-worklet.js');
+                        this.workletNode = new AudioWorkletNode(this.ctx, 'flower-processor');
+                        this.workletNode.connect(this.masterGain);
+                        console.log("✅ AudioWorklet successfully loaded.");
+                    } catch(e) {
+                        console.warn("AudioWorklet missing or blocked (CORS). Falling back to standard thread.", e);
+                        this.fallbackToStandard();
+                    }
+                } else {
+                    console.warn("AudioWorklet not supported on this browser/network (Requires HTTPS). Falling back to standard thread.");
+                    this.fallbackToStandard();
                 }
             } else {
                 this.workletNode = null;
             }
 
-            this.noiseBuffer = await this.createNoiseBuffer();
+            try {
+                this.noiseBuffer = await this.createNoiseBuffer();
+            } catch (e) {
+                console.warn("Noise buffer rendering failed, proceeding without noise.", e);
+                this.noiseBuffer = null;
+            }
+        }
+
+        fallbackToStandard() {
+            this.processingMode = 'standard';
+            this.workletNode = null;
+            if (processingModeSelect) processingModeSelect.value = 'standard';
         }
 
         async createNoiseBuffer() {
             const bufferSize = this.ctx.sampleRate * 2;
             
             if (this.noiseGenMode === 'offline') {
-                console.log("Generating noise out of runtime (OfflineAudioContext)...");
                 const offlineCtx = new OfflineAudioContext(1, bufferSize, this.ctx.sampleRate);
                 const buffer = offlineCtx.createBuffer(1, bufferSize, offlineCtx.sampleRate);
                 const data = buffer.getChannelData(0);
@@ -125,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 src.start(0);
                 return await offlineCtx.startRendering();
             } else {
-                console.log("Generating noise synchronously (Heavy)...");
                 const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
                 const data = buffer.getChannelData(0);
                 for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
@@ -134,12 +149,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async createOfflineBuffer(duration, renderCallback) {
-            const offlineCtx = new OfflineAudioContext(1, 44100 * duration, 44100);
-            const master = offlineCtx.createGain();
-            master.connect(offlineCtx.destination);
-            
-            renderCallback(offlineCtx, master, this.noiseBuffer);
-            return await offlineCtx.startRendering();
+            try {
+                // Fix 3: Syncing Offline Render Sample Rate to Mobile Hardware Spec dynamically
+                const sr = this.ctx.sampleRate;
+                const offlineCtx = new OfflineAudioContext(1, sr * duration, sr);
+                const master = offlineCtx.createGain();
+                master.connect(offlineCtx.destination);
+                
+                renderCallback(offlineCtx, master, this.noiseBuffer);
+                return await offlineCtx.startRendering();
+            } catch (e) {
+                console.error("OfflineAudioContext rendering failed on this device.", e);
+                return null;
+            }
         }
 
         async preloadSounds() {
@@ -198,9 +220,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            // Fix 4: If offline render is completely blocked, fallback to realtime procedural audio
+            if (!this.buffers.tink || !this.buffers.tonk) {
+                console.warn("⚠️ Buffers failed to generate. Falling back to Real-time Procedural Engine.");
+                this.mode = 'realtime';
+                if (audioModeSelect) audioModeSelect.value = 'procedural';
+                return;
+            }
+
             if (this.useBufferPool) this.initPools();
 
-            // Send buffers to the Worklet memory once
             if (this.processingMode === 'worklet' && this.workletNode) {
                 this.workletNode.port.postMessage({ type: 'load', name: 'tink', buffer: this.buffers.tink.getChannelData(0) });
                 this.workletNode.port.postMessage({ type: 'load', name: 'tonk', buffer: this.buffers.tonk.getChannelData(0) });
@@ -243,7 +272,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!buffer) return;
             
             if (this.processingMode === 'worklet' && this.workletNode) {
-                // Only send a tiny string/trigger flag - almost 0 latency
                 const soundName = buffer === this.buffers.tink ? 'tink' : 'tonk';
                 this.workletNode.port.postMessage({ type: 'play', name: soundName });
             } else {
@@ -297,7 +325,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setVolume(val) { if (this.masterGain) this.masterGain.gain.value = val; }
-        setMode(mode) { this.mode = mode; console.log(`Audio Mode: ${mode}`); }
+        
+        setMode(mode) { 
+            this.mode = mode; 
+            console.log(`Audio Mode: ${mode}`); 
+            if (mode === 'buffered' && !this.buffers.tink) {
+                this.preloadSounds();
+            }
+        }
         
         setLatencyHint(hint) {
             if (hint === this.latencyHint) return;
@@ -331,23 +366,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         unlock() {
             if (this.unlocked) return;
-            if (this.ctx.state === 'suspended') this.ctx.resume();
+            
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume().catch(e => console.warn("Audio Context resume failed", e));
+            }
 
-            const buffer = this.ctx.createBuffer(1, 1, 22050);
-            const source = this.ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(this.ctx.destination);
-            source.start(0);
-
-            const idler = this.ctx.createOscillator();
-            const idlerGain = this.ctx.createGain();
-            idlerGain.gain.value = 0.001; 
-            idler.connect(idlerGain).connect(this.ctx.destination);
-            idler.start(0);
+            try {
+                const buffer = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+                const source = this.ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(this.ctx.destination);
+                source.start(0);
+            } catch(e) {
+                console.warn("Silent buffer play failed during unlock", e);
+            }
 
             this.unlocked = true;
             console.log("🔓 Audio Unlocked.");
-            if (!this.buffers.tink) this.preloadSounds();
+            
+            if (!this.buffers.tink && this.mode === 'buffered') {
+                this.preloadSounds();
+            }
         }
     }
 
@@ -461,7 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetFrameTime = 1000 / 60; 
     
     let showFps = false;
-    let lockFps = false; // Synced with optimized defaults
+    let lockFps = false; 
     let framesThisSecond = 0;
     let lastFpsUpdateTime = 0;
 
@@ -1167,7 +1206,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pressKey = (e) => {
                 e.preventDefault();
                 keys[key] = true;
-                soundEngine.unlock(); // Unlock on control press
+                soundEngine.unlock(); 
             };
             const releaseKey = (e) => {
                 e.preventDefault();

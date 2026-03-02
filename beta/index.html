@@ -1,236 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>js_bumbleracing – Bee Flower Bee (Co-op)</title>
-
-<style>
-body {
-    font-family: Arial, sans-serif;
-    background: #111;
-    color: #eee;
-    line-height: 1.6;
-    margin: 0;
-    padding: 0;
-}
-
-.container {
-    max-width: 900px;
-    margin: auto;
-    padding: 20px;
-}
-
-h1, h2, h3 {
-    color: #ffd84d;
-}
-
-a {
-    color: #66ccff;
-}
-
-code {
-    background: #222;
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-
-.section {
-    margin-bottom: 40px;
-}
-
-ul {
-    margin-left: 20px;
-}
-
-hr {
-    border: 0;
-    border-top: 1px solid #333;
-    margin: 40px 0;
-}
-
-.screenshot {
-    max-width: 100%;
-    border: 2px solid #444;
-    border-radius: 6px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bee Flower Bee (Co-op)</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
-
 <body>
-<div class="container">
+    <!-- Mobile/Fullscreen Toggle -->
+    <button id="mobile-btn">📱 Fullscreen / Mobile Controls</button>
 
-<h1>js_bumbleracing</h1>
+    <!-- The Game Container -->
+    <div id="game-container">
+        <!-- The Screen (Fixed 960x720 Resolution) -->
+        <div id="screen">
+            
+            <!-- HUD -->
+            <div id="hud">
+                <div id="player-info">
+                    <div id="player-scores">
+                        <div class="hud-item" id="p1-score">P1: 0</div>
+                        <div class="hud-item hidden" id="p2-score">P2: 0</div>
+                    </div>
+                    <div id="gamepad-status" class="hud-item">
+                        <span id="p1-gp-status">P1: GP?</span>
+                        <span id="p2-gp-status" class="hidden">P2: GP?</span>
+                    </div>
+                </div>
+                
+                <div class="hud-item" id="level">LEVEL: 1</div>
+                <div class="hud-item" id="flowers-left">🌼: 5</div>
+                <div class="hud-item" id="timer">⏱️ 3:00</div>
+                <div class="hud-item" id="lives">LIVES: 🐝🐝🐝</div>
+                
+                <!-- FPS Counter -->
+                <div class="hud-item hidden" id="fps-counter">FPS: 60</div>
+                
+                <div id="dev-mode-indicator" class="hidden">DEV MODE</div>
+            </div>
 
-<h2>Play it now:</h2>
-<p>
-<a href="https://pemmyz.github.io/js_bumbleracing/" target="_blank">
-https://pemmyz.github.io/js_bumbleracing/
-</a>
-</p>
+            <!-- Game World -->
+            <div id="game-area">
+                <div id="world">
+                    <!-- Dynamic objects (Player, Clouds, Platforms) -->
+                </div>
+            </div>
 
-<hr>
+            <!-- Menus & Overlays -->
+            <div id="message-screen">
+                <h1>Bee Flower Bee</h1>
+                <p class="instructions">P1: WASD or Arrows to Move/Thrust</p>
+                <p class="instructions">P2: Press Start/Join to play co-op!</p>
+                <p class="instructions">Collect 🌼 | Avoid 🌵</p>
+                <div class="button-container">
+                    <button id="start-button">Start Game</button>
+                    <button id="help-button">Help (?)</button>
+                </div>
+            </div>
 
-<h1>🐝🌼🐝 Bee Flower Bee (Co-op)</h1>
+            <div id="level-message-screen" class="hidden"></div>
 
-<p>
-A retro-styled browser game inspired by arcade classics and the bee arcade minigame from <strong>GTA:SA</strong>.  
-Collect all the 🌼 flowers before the timer runs out, bounce off leaves 🌿, and avoid thorny 🌵 obstacles!
-</p>
+            <div id="help-screen" class="hidden">
+                <h2>How to Play</h2>
+                <p><strong>Goal:</strong> Collect flowers before time runs out.</p>
+                <p><strong>Controls:</strong> Keyboard (WASD/Arrows) or Gamepad.</p>
+                <p><strong>Co-op:</strong> A second player can join anytime.</p>
+                
+                <div class="settings-container">
+                    <!-- Speed Settings -->
+                    <div class="settings-row">
+                        <label for="speed-select">Game Speed:</label>
+                        <select id="speed-select" class="retro-select">
+                            <option value="0.75">0.75x</option>
+                            <option value="1.0" selected>1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="1.75">1.75x</option>
+                            <option value="2.0">2.0x</option>
+                        </select>
+                    </div>
 
-<p>
-Built with <strong>HTML5, CSS3, and vanilla JavaScript</strong> — no external libraries required.
-</p>
+                    <!-- Audio Mode Settings -->
+                    <div class="settings-row">
+                        <label for="audio-mode">Audio Engine:</label>
+                        <select id="audio-mode" class="retro-select">
+                            <option value="buffered" selected>Zero-Cost (Buffers)</option>
+                            <option value="procedural">Real-time (Synth)</option>
+                        </select>
+                    </div>
 
-<img src="https://pemmyz.github.io/js_bumbleracing/screenshots/game_1.png" alt="Game Screenshot" class="screenshot">
+                    <!-- Advanced Audio Processing -->
+                    <div class="settings-row">
+                        <label for="processing-mode">Audio Processing:</label>
+                        <select id="processing-mode" class="retro-select">
+                            <option value="standard">Standard Audio Thread</option>
+                            <option value="worklet" selected>AudioWorklet (True Thread)</option>
+                        </select>
+                    </div>
 
-<hr>
+                    <!-- Noise Generation Method -->
+                    <div class="settings-row">
+                        <label for="noise-gen">Noise Generation:</label>
+                        <select id="noise-gen" class="retro-select">
+                            <option value="offline" selected>OfflineRender (Zero Cost)</option>
+                            <option value="sync">Runtime Sync (Heavy)</option>
+                        </select>
+                    </div>
 
-<div class="section">
-<h2>🎮 Gameplay</h2>
+                    <!-- Audio Latency Hint -->
+                    <div class="settings-row">
+                        <label for="latency-hint">Audio Latency:</label>
+                        <select id="latency-hint" class="retro-select">
+                            <option value="interactive" selected>Low (Interactive)</option>
+                            <option value="balanced">Balanced</option>
+                            <option value="playback">High (Playback)</option>
+                        </select>
+                    </div>
 
-<h3>🎮 Controls</h3>
+                    <!-- Buffer Pool Toggle -->
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="use-buffer-pool" checked> Use Buffer Pool (Rapid Fire)</label>
+                    </div>
 
-<h4>Player 1 (Keyboard)</h4>
-<ul>
-<li>⬅️➡️ <code>A / D</code> → Move left/right</li>
-<li>⬆️ <code>W</code> or <code>Space</code> → Thrust upwards</li>
-</ul>
+                    <!-- Volume Settings -->
+                    <div class="settings-row">
+                        <label for="volume-slider">Volume: <span id="volume-value">50%</span></label>
+                    </div>
+                    <div class="settings-row">
+                        <input type="range" id="volume-slider" min="0" max="100" value="50">
+                    </div>
 
-<h4>Player 2 (Keyboard — join anytime)</h4>
-<ul>
-<li>Press <code>Arrow Up</code> to join</li>
-<li>⬅️➡️ <code>Arrow Left / Arrow Right</code> → Move left/right</li>
-<li>⬆️ <code>Arrow Up</code> → Thrust upwards</li>
-</ul>
+                    <!-- Video Checkboxes -->
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="toggle-fps"> Show FPS Counter</label>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="lock-fps"> Lock FPS to 60</label>
+                    </div>
+                </div>
 
-<h3>🎮 Gamepad (P1 & P2)</h3>
+                <div class="help-footer">
+                    <button id="close-help-button">Close</button>
+                    <button id="restart-game-button" style="background: #e74c3c;">Restart Game</button>
+                    <div id="game-version">v1.6.2 (Optimized)</div>
+                </div>
+            </div>
 
-<p>
-Gamepads are <strong>auto-assigned</strong> when you press any face button  
-(<code>A/B/X/Y</code> on Xbox, <code>✕/○/□/△</code> on PlayStation).
-</p>
+            <!-- Help Button (In-Game) -->
+            <div id="controls-bar">
+                <button id="external-help-button">Help (H)</button>
+            </div>
+        </div>
+    </div>
 
-<ul>
-<li>First unclaimed pad becomes <strong>P1</strong></li>
-<li>Next becomes <strong>P2</strong> (auto-joins if game is running)</li>
-</ul>
+    <!-- Mobile Touch Controls -->
+    <div id="mobile-controls">
+        <div id="mobile-dpad">
+            <button id="mobile-left" class="mobile-control-btn">◀</button>
+            <button id="mobile-right" class="mobile-control-btn">▶</button>
+        </div>
+        <div id="mobile-action">
+            <button id="mobile-up" class="mobile-control-btn">▲</button>
+        </div>
+    </div>
 
-<h4>Move left/right</h4>
-<ul>
-<li>Left Stick (X-axis)</li>
-<li>or D-Pad Left / Right</li>
-</ul>
-
-<h4>Thrust upwards</h4>
-<ul>
-<li>A (Xbox) / ✕ (PlayStation)</li>
-<li>Right Trigger (RT / R2)</li>
-<li>Left Stick Up (above deadzone)</li>
-</ul>
-
-<h4>Notes</h4>
-<ul>
-<li>Stick deadzone: ~0.2</li>
-<li>If gamepad disconnects, it is unassigned automatically</li>
-<li>HUD shows <code>P1: GP?</code> / <code>P2: GP?</code></li>
-</ul>
-
-<h3>🧩 Joining / Switching</h3>
-<ul>
-<li>Press <code>Arrow Up</code> to add Player 2 (keyboard)</li>
-<li>Press any face button on unassigned controller to claim P1 or P2</li>
-</ul>
-
-<h3>Objectives</h3>
-<ul>
-<li>Collect all 🌼 flowers before time runs out</li>
-<li>Avoid thorny 🌵 clusters</li>
-<li>Bounce off 🌿 platforms</li>
-</ul>
-
-<h3>Progression</h3>
-<ul>
-<li>Each level increases difficulty</li>
-<li>Extra life every 3 levels</li>
-<li>Score bonus for leftover time</li>
-</ul>
-
-<h3>Co-op Mode</h3>
-<ul>
-<li>Drop-in/out 2-player cooperative play</li>
-<li>Shared life pool</li>
-<li>Dynamic camera adjustment</li>
-</ul>
-</div>
-
-<hr>
-
-<div class="section">
-<h2>🕹️ Features</h2>
-<ul>
-<li>Retro CRT screen effect</li>
-<li>Emoji-based graphics</li>
-<li>Dynamic cloud system (☁️ & ⚡)</li>
-<li>Physics: gravity, thrust, bounce</li>
-<li>Randomized level generation</li>
-<li>Two-player HUD support</li>
-<li>Start/Game Over screens</li>
-<li>Level transition messages</li>
-<li>Help screen</li>
-</ul>
-</div>
-
-<hr>
-
-<div class="section">
-<h2>🛠️ Developer Mode</h2>
-<ul>
-<li><code>J</code> → Toggle Developer Mode</li>
-<li>Shows collision hitboxes</li>
-<li>Displays DEV MODE indicator</li>
-<li><code>N</code> → Skip to next level</li>
-</ul>
-</div>
-
-<hr>
-
-<div class="section">
-<h2>❓ Help & Controls Overlay</h2>
-<ul>
-<li>Press <code>H</code> or click Help button</li>
-<li>Explains objectives, controls, dangers, and hotkeys</li>
-<li>Player 2 can join anytime</li>
-</ul>
-</div>
-
-<hr>
-
-<div class="section">
-<h2>📸 Screenshots</h2>
-<p>Add screenshots here once available!</p>
-</div>
-
-<hr>
-
-<div class="section">
-<h2>💡 Future Ideas</h2>
-<ul>
-<li>🎵 Retro sound effects & music</li>
-<li>🌩️ Thunder cloud hazards</li>
-<li>🌍 Online leaderboard</li>
-<li>📱 Mobile touch controls</li>
-<li>🐸 Secret "AMIGAAA!" frog mode</li>
-</ul>
-</div>
-
-<hr>
-
-<div class="section">
-<h2>📜 License</h2>
-<p>MIT License — Free to play, modify, and share.</p>
-</div>
-
-</div>
+    <script src="script.js"></script>
 </body>
 </html>

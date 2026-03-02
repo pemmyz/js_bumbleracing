@@ -1,10 +1,5 @@
 :root {
     --retro-font: 'Press Start 2P', cursive;
-    --primary-color: #4CAF50;
-    --danger-color: #d9534f;
-    --bg-dark: #1a1a1a;
-    --text-color: white;
-    --highlight: #FFD700;
 }
 
 body {
@@ -17,20 +12,23 @@ body {
     width: 100vw;
     overflow: auto;
     font-family: var(--retro-font);
-    color: var(--text-color);
+    color: white;
 }
 
 body.mobile-mode {
     overflow: hidden;
     touch-action: none;
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
 }
 
 #screen {
     width: 960px;
     height: 720px;
-    background: var(--bg-dark);
+    background: #1a1a1a;
     position: relative;
     overflow: hidden;
     transform-origin: center center;
@@ -38,7 +36,6 @@ body.mobile-mode {
     flex-shrink: 0;
 }
 
-/* CRT Scanline Effect */
 #screen::after {
     content: '';
     position: absolute;
@@ -51,7 +48,8 @@ body.mobile-mode {
 }
 
 #game-area {
-    width: 100%; height: 100%;
+    width: 960px;
+    height: 720px;
     position: relative;
     overflow: hidden;
     background-color: #87CEEB;
@@ -60,10 +58,10 @@ body.mobile-mode {
 #world {
     position: absolute;
     top: 0; left: 0;
-    width: 100%; height: 300%;
+    width: 100%;
+    height: 300%;
 }
 
-/* --- HUD --- */
 #hud {
     position: absolute;
     top: 10px; left: 10px; right: 10px;
@@ -76,19 +74,28 @@ body.mobile-mode {
     text-shadow: 2px 2px 0 #000;
 }
 
-#player-info, #player-scores { display: flex; flex-direction: column; gap: 5px; }
-#p1-score, #p1-gp-status { color: var(--highlight); }
-#p2-score, #p2-gp-status { color: mediumorchid; }
-#p1-gp-status, #p2-gp-status { font-size: 12px; }
+#player-info { display: flex; flex-direction: column; gap: 5px; }
+#player-scores { display: flex; flex-direction: column; gap: 5px; }
+#p1-score { color: #FFD700; }
+#p2-score { color: mediumorchid; }
+#p1-gp-status { color: #FFD700; font-size: 12px; }
+#p2-gp-status { color: mediumorchid; font-size: 12px; }
 
-#fps-counter { position: absolute; right: 10px; top: 80px; font-size: 14px; text-align: right; }
+#fps-counter { 
+    position: absolute;
+    right: 10px;
+    top: 80px;
+    font-size: 14px; 
+    color: #FFF; 
+    text-align: right;
+}
+
 #dev-mode-indicator { color: red; position: absolute; top: 40px; left: 50%; transform: translateX(-50%); }
 
-/* --- Game Objects --- */
 .game-object { position: absolute; font-size: 40px; will-change: transform; }
-.player { z-index: 10; }
-.player-1-glow { filter: drop-shadow(0 0 10px gold); }
-.player-2-glow { filter: drop-shadow(0 0 10px mediumorchid); }
+.player { z-index: 10; font-size: 40px; }
+.player-1-glow { filter: drop-shadow(0 0 10px gold) drop-shadow(0 0 10px gold) drop-shadow(0 0 10px gold); }
+.player-2-glow { filter: drop-shadow(0 0 10px mediumorchid) drop-shadow(0 0 10px mediumorchid) drop-shadow(0 0 10px mediumorchid); }
 .platform { color: #228B22; }
 .thorn { color: #696969; }
 .flower { z-index: 5; }
@@ -101,11 +108,10 @@ body.mobile-mode {
 .hitbox { position: absolute; border: 1px solid red; background: rgba(255,0,0,0.2); z-index: 999; }
 .hidden { display: none !important; }
 
-/* --- Menus --- */
 #message-screen, #level-message-screen, #help-screen {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.9);
+    background: rgba(0,0,0,0.85);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -115,64 +121,30 @@ body.mobile-mode {
     text-align: center;
 }
 
-#message-screen h1 { color: var(--highlight); margin-bottom: 20px; font-size: 40px; }
+#message-screen h1 { color: #FFD700; margin-bottom: 20px; font-size: 40px; }
 .instructions { font-size: 16px; line-height: 1.5; margin: 10px; }
-#level-message-screen { font-size: 40px; color: var(--highlight); text-shadow: 4px 4px 0 #000; pointer-events: none; }
-
-/* --- Settings Menu Styling --- */
-#help-screen { align-items: center; padding: 20px; box-sizing: border-box; overflow-y: auto; }
-#help-screen h2 { color: var(--highlight); margin-bottom: 20px; }
+#level-message-screen { font-size: 40px; color: #FFD700; text-shadow: 4px 4px 0 #000; pointer-events: none; }
+#help-screen { align-items: flex-start; padding: 50px; box-sizing: border-box; }
+#help-screen h2 { color: #FFD700; margin-bottom: 20px;}
+#help-screen p { font-size: 14px; line-height: 2; text-align: left;}
 
 .settings-container {
-    width: 100%;
-    max-width: 500px;
-    background: rgba(255,255,255,0.05);
-    padding: 20px;
-    border: 2px solid #555;
-    text-align: left;
+    margin: 20px 0;
     display: flex;
     flex-direction: column;
     gap: 15px;
+    text-align: left;
+    color: #FFD700;
+    font-size: 14px;
+    width: 100%;
+    max-width: 400px;
 }
 
-.settings-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 5px;
-}
-
-.settings-group label {
-    font-size: 12px;
-    color: #aaa;
-}
-
-.checkbox-group {
-    flex-direction: row;
-    justify-content: space-between;
-}
-
-.checkbox-group label {
-    color: white;
-    cursor: pointer;
+.settings-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-}
-
-.audio-group {
-    border-left: 3px solid var(--highlight);
-    padding-left: 10px;
-}
-
-.retro-select {
-    font-family: var(--retro-font);
-    background: #222;
-    color: white;
-    border: 2px solid #555;
-    padding: 10px;
+    gap: 15px;
     cursor: pointer;
-    font-size: 14px;
     width: 100%;
 }
 
@@ -182,82 +154,122 @@ body.mobile-mode {
     height: 10px;
     background: #333;
     outline: none;
-    border: 1px solid #777;
+    border: 2px solid white;
 }
 
-#volume-slider::-webkit-slider-thumb {
+#volume-slider::-webkit-slider-thumb, #volume-slider::-moz-range-thumb {
     -webkit-appearance: none;
-    width: 20px; height: 20px;
-    background: var(--primary-color);
+    width: 25px;
+    height: 25px;
+    background: #4CAF50;
     cursor: pointer;
     border: 2px solid white;
 }
 
-/* Footer & Actions */
-.help-footer {
+.settings-row label {
+    cursor: pointer;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    width: 100%; max-width: 500px;
-    margin-top: 20px;
     gap: 10px;
 }
 
-.footer-buttons {
-    display: flex;
-    gap: 15px;
-    width: 100%;
-    justify-content: center;
+.settings-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
 }
 
-#game-version { font-size: 10px; color: #666; margin-top: 5px; }
+.retro-select {
+    font-family: var(--retro-font);
+    background: #333;
+    color: white;
+    border: 2px solid white;
+    padding: 8px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.help-footer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 400px;
+    margin-top: 20px;
+}
+
+#game-version {
+    font-size: 10px;
+    color: #888;
+}
 
 button {
     font-family: var(--retro-font);
-    background: var(--primary-color);
+    background: #4CAF50;
     color: white;
     border: 4px solid white;
     padding: 15px 20px;
     font-size: 16px;
     cursor: pointer;
     box-shadow: 0 4px 0 #333;
-    margin: 5px;
+    margin: 10px;
 }
 button:active { transform: translateY(4px); box-shadow: 0 0 0 #333; }
-
-/* Red/Danger Button Style */
-.danger-btn {
-    background: var(--danger-color);
-}
-
 #help-button, #external-help-button { background: #008CBA; }
 
-#controls-bar { position: absolute; bottom: 10px; left: 10px; z-index: 800; }
+#controls-bar {
+    position: absolute;
+    bottom: 10px; left: 10px;
+    z-index: 800;
+}
 
 #mobile-btn {
-    position: fixed; top: 10px; left: 10px; z-index: 2000;
-    background: #333; font-size: 12px; padding: 8px;
+    position: fixed;
+    top: 10px; left: 10px;
+    z-index: 2000;
+    background: #333;
+    font-size: 12px;
+    padding: 8px;
 }
 body.mobile-mode #mobile-btn { display: none; }
 
 #mobile-controls {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none; z-index: 3000;
-    display: none; justify-content: space-between; align-items: flex-end;
-    padding: 20px; box-sizing: border-box;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; 
+    z-index: 3000;
+    display: none;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 20px;
+    box-sizing: border-box;
 }
-body.mobile-mode #mobile-controls { display: flex; }
+
+body.mobile-mode #mobile-controls {
+    display: flex;
+}
 
 .mobile-control-btn {
-    pointer-events: auto; width: 90px; height: 90px;
+    pointer-events: auto;
+    width: 90px; height: 90px;
     background: rgba(255,255,255,0.15);
     border: 3px solid rgba(255,255,255,0.4);
     border-radius: 50%;
-    color: white; font-size: 40px;
+    color: white;
+    font-size: 40px;
     display: flex; justify-content: center; align-items: center;
-    backdrop-filter: blur(4px); margin-bottom: 20px;
+    user-select: none;
+    backdrop-filter: blur(4px);
+    margin-bottom: 20px;
+    transition: transform 0.1s, background 0.1s;
+    -webkit-tap-highlight-color: transparent;
 }
-.mobile-control-btn:active { background: rgba(255,255,255,0.4); transform: scale(0.95); }
+
+.mobile-control-btn:active { 
+    background: rgba(255,255,255,0.4); 
+    transform: scale(0.95);
+}
 
 #mobile-dpad { display: flex; gap: 5px; margin-left: 20px; margin-bottom: 20px; }
 #mobile-action { margin-right: 40px; margin-bottom: 40px; }

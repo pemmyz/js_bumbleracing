@@ -1,7 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const CURRENT_VERSION = '1.5';
-    document.getElementById('game-version').textContent = `v${CURRENT_VERSION}`;
-
     // --- ELEMENT SELECTORS ---
     const gameArea = document.getElementById('game-area');
     const world = document.getElementById('world');
@@ -17,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const helpScreen = document.getElementById('help-screen');
     const helpButton = document.getElementById('help-button');
     const closeHelpButton = document.getElementById('close-help-button');
-    const restartGameButton = document.getElementById('restart-game-button'); // NEW
     const devIndicator = document.getElementById('dev-mode-indicator');
     const externalHelpButton = document.getElementById('external-help-button');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
@@ -25,13 +21,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- SETTINGS SELECTORS ---
     const speedSelect = document.getElementById('speed-select');
-    const audioEngineSelect = document.getElementById('audio-engine');
-    const latencyHintSelect = document.getElementById('latency-hint');
+    const audioModeSelect = document.getElementById('audio-mode');
     const volumeSlider = document.getElementById('volume-slider');
     const volumeValueEl = document.getElementById('volume-value');
     const fpsCounterEl = document.getElementById('fps-counter');
     const toggleFpsCheckbox = document.getElementById('toggle-fps');
     const lockFpsCheckbox = document.getElementById('lock-fps');
+
+    // --- MOBILE CONTROLS SELECTORS ---
+    const mobileControls = document.getElementById('mobile-controls');
+    const mobileLeftBtn = document.getElementById('mobile-left');
+    const mobileRightBtn = document.getElementById('mobile-right');
+    const mobileUpBtn = document.getElementById('mobile-up');
+    const mobileToggleBtn = document.getElementById('mobile-btn');
 
     // --- SOUND ENGINE ---
     class SoundEngine {
@@ -215,7 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- SETTINGS ---
         setVolume(val) {
-            this.masterGain.gain.value = val;
+            if (this.masterGain) {
+                this.masterGain.gain.value = val;
+            }
         }
 
         setMode(mode) {
@@ -273,16 +277,15 @@ document.addEventListener('DOMContentLoaded', () => {
         soundEngine.setVolume(val / 100);
     });
 
-    audioEngineSelect.addEventListener('change', (e) => {
-        soundEngine.setMode(e.target.value);
-    });
-
-    latencyHintSelect.addEventListener('change', (e) => {
-        soundEngine.setLatencyHint(e.target.value);
+    audioModeSelect.addEventListener('change', (e) => {
+        // Map the HTML values 'procedural' to the engine's 'realtime' mode
+        let mappedMode = e.target.value === 'procedural' ? 'realtime' : 'buffered';
+        soundEngine.setMode(mappedMode);
     });
 
     speedSelect.addEventListener('change', (e) => {
         gameSpeed = parseFloat(e.target.value);
+        console.log(`Game speed updated to: ${gameSpeed}x`);
     });
 
     toggleFpsCheckbox.addEventListener('change', (e) => {
@@ -299,13 +302,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lastRenderTime = performance.now(); 
     });
 
-    // --- Mobile Controls ---
-    const mobileControls = document.getElementById('mobile-controls');
-    const mobileLeftBtn = document.getElementById('mobile-left');
-    const mobileRightBtn = document.getElementById('mobile-right');
-    const mobileUpBtn = document.getElementById('mobile-up');
-    const mobileToggleBtn = document.getElementById('mobile-btn');
 
+    // --- Scaling Logic & Mobile Mode ---
     function scaleGame() {
         const screen = document.getElementById("screen");
         const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
@@ -1053,48 +1051,7 @@ document.addEventListener('DOMContentLoaded', () => {
     helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
     externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
-    
-    // NEW GAME BUTTON LISTENER
-    restartGameButton.addEventListener('click', () => {
-        helpScreen.classList.add('hidden');
-        startGame(); // Resets state and starts fresh
-    });
-
     mobileToggleBtn.addEventListener('click', goFull);
-
-    speedSelect.addEventListener('change', (e) => {
-        gameSpeed = parseFloat(e.target.value);
-        console.log(`Game speed updated to: ${gameSpeed}x`);
-    });
-
-    // Volume Slider Listener
-    volumeSlider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
-        volumeValueEl.textContent = `${val}%`;
-        if (masterGain) {
-            masterGain.gain.value = val / 100;
-        }
-    });
-
-    // Audio Mode Listener
-    audioModeSelect.addEventListener('change', (e) => {
-        useBufferedAudio = (e.target.value === 'buffered');
-        console.log(`Audio Mode switched to: ${useBufferedAudio ? 'Pre-rendered' : 'Real-time'}`);
-    });
-
-    toggleFpsCheckbox.addEventListener('change', (e) => {
-        showFps = e.target.checked;
-        fpsCounterEl.classList.toggle('hidden', !showFps);
-        if (showFps) {
-            framesThisSecond = 0;
-            lastFpsUpdateTime = performance.now();
-        }
-    });
-
-    lockFpsCheckbox.addEventListener('change', (e) => {
-        lockFps = e.target.checked;
-        lastRenderTime = performance.now(); 
-    });
 
     function setupMobileControls() {
         if (!mobileControls) return;

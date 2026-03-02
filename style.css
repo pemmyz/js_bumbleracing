@@ -10,16 +10,16 @@ body {
     align-items: center;
     height: 100vh;
     width: 100vw;
-    overflow: auto; /* Allow scrolling if window is smaller than game in native mode */
+    overflow: auto;
     font-family: var(--retro-font);
     color: white;
 }
 
-/* --- MOBILE MODE LOCK (Prevents dragging screen) --- */
+/* --- MOBILE MODE LOCK --- */
 body.mobile-mode {
-    overflow: hidden;      /* Disables scrolling */
-    touch-action: none;    /* Disables browser handling of gestures/panning */
-    position: fixed;       /* Locks the body in place relative to the viewport */
+    overflow: hidden;
+    touch-action: none;
+    position: fixed;
     width: 100%;
     height: 100%;
     top: 0;
@@ -35,7 +35,7 @@ body.mobile-mode {
     overflow: hidden;
     transform-origin: center center;
     box-shadow: 0 0 50px rgba(0,0,0,0.8);
-    flex-shrink: 0; /* Prevent shrinking in small windows */
+    flex-shrink: 0;
 }
 
 /* Scanline Overlay Effect */
@@ -86,11 +86,10 @@ body.mobile-mode {
 #p1-gp-status { color: #FFD700; font-size: 12px; }
 #p2-gp-status { color: mediumorchid; font-size: 12px; }
 
-/* FPS Counter Styling - Absolute position to not disrupt flow */
 #fps-counter { 
     position: absolute;
-    right: 10px; /* Aligned with HUD padding */
-    top: 80px;   /* ~2 lines (gap) below the Lives counter */
+    right: 10px;
+    top: 80px;
     font-size: 14px; 
     color: #FFF; 
     text-align: right;
@@ -138,7 +137,6 @@ body.mobile-mode {
 #help-screen h2 { color: #FFD700; margin-bottom: 20px;}
 #help-screen p { font-size: 14px; line-height: 2; text-align: left;}
 
-/* Settings Menu Container */
 .settings-container {
     margin: 20px 0;
     display: flex;
@@ -178,7 +176,6 @@ body.mobile-mode {
     cursor: pointer;
 }
 
-/* Buttons */
 button {
     font-family: var(--retro-font);
     background: #4CAF50;
@@ -207,24 +204,20 @@ button:active { transform: translateY(4px); box-shadow: 0 0 0 #333; }
     font-size: 12px;
     padding: 8px;
 }
-/* Hide button in mobile mode to clean up screen */
 body.mobile-mode #mobile-btn { display: none; }
 
-
-/* --- MOBILE CONTROLS OVERLAY --- */
 #mobile-controls {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none; 
     z-index: 3000;
-    display: none; /* Hidden by default (Windowed Mode) */
+    display: none;
     justify-content: space-between;
     align-items: flex-end;
     padding: 20px;
     box-sizing: border-box;
 }
 
-/* Only show controls if in Mobile Mode (Fullscreen) */
 body.mobile-mode #mobile-controls {
     display: flex;
 }
@@ -242,7 +235,6 @@ body.mobile-mode #mobile-controls {
     backdrop-filter: blur(4px);
     margin-bottom: 20px;
     transition: transform 0.1s, background 0.1s;
-    /* Prevent text selection/highlighting on touch */
     -webkit-tap-highlight-color: transparent;
 }
 

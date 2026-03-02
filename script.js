@@ -1,4 +1,99 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- AUDIO SYSTEM SETUP ---
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const limiter = audioContext.createDynamicsCompressor();
+    limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
+    limiter.connect(audioContext.destination);
+
+    // Generate White Noise Buffer
+    const bufferSize = audioContext.sampleRate * 2; // 2 seconds buffer
+    const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+
+    function finalVolume() {
+        return 0.2; // Master volume
+    }
+
+    // --- Sound Effects Logic ---
+    let isTinkNext = true;
+
+    function playFlowerSound() {
+        if (isTinkNext) {
+            playTink();
+        } else {
+            playTonk();
+        }
+        isTinkNext = !isTinkNext; // Toggle for next time
+    }
+
+    function playTink() {
+        const now = audioContext.currentTime;
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1500, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+        gain.gain.setValueAtTime(1.5 * finalVolume(), now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        
+        const noise = audioContext.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = audioContext.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.value = 2000;
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0.5 * finalVolume(), now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(limiter);
+
+        osc.connect(gain);
+        gain.connect(limiter);
+        osc.start(now);
+        osc.stop(now + 0.1);
+        noise.start(now);
+        noise.stop(now + 0.05);
+    }
+    
+    function playTonk() {
+        const now = audioContext.currentTime;
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(450, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+        gain.gain.setValueAtTime(2.0 * finalVolume(), now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 600;
+        
+        const noise = audioContext.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = audioContext.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 800;
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(1 * finalVolume(), now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(limiter);
+        
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(limiter);
+        osc.start(now);
+        osc.stop(now + 0.2);
+        noise.start(now);
+        noise.stop(now + 0.05);
+    }
+
     // --- Element Selectors ---
     const gameArea = document.getElementById('game-area');
     const world = document.getElementById('world');
@@ -30,15 +125,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const mobileLeftBtn = document.getElementById('mobile-left');
     const mobileRightBtn = document.getElementById('mobile-right');
     const mobileUpBtn = document.getElementById('mobile-up');
+    const mobileToggleBtn = document.getElementById('mobile-btn');
 
     // --- Scaling Logic & Mobile Mode ---
     function scaleGame() {
         const screen = document.getElementById("screen");
-        // Check if we are in Fullscreen mode
         const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
 
         if (isFullscreen) {
-            // Fullscreen Mode: Zoom to fit window + Enable Mobile Controls
             const baseWidth = 960;
             const baseHeight = 720;
             const scale = Math.min(
@@ -48,17 +142,20 @@ document.addEventListener('DOMContentLoaded', () => {
             screen.style.transform = `scale(${scale})`;
             document.body.classList.add('mobile-mode');
         } else {
-            // Windowed Mode: No Zoom, Native Resolution (960x720) centered
             screen.style.transform = 'none'; 
             document.body.classList.remove('mobile-mode');
         }
     }
 
-    // Attach scaling listeners
+    function goFull() {
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }
+
     window.addEventListener("resize", scaleGame);
     window.addEventListener("fullscreenchange", scaleGame);
     window.addEventListener("webkitfullscreenchange", scaleGame);
-    // Initial Scale Check
     scaleGame();
 
 
@@ -67,16 +164,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let state = {};
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
     
-    // --- Game Loop timing & Speed variables ---
     let lastFrameTime = 0;
     let lastRenderTime = 0;
     let accumulator = 0;
     let gameSpeed = 1.0;
-    const targetFrameTime = 1000 / 60; // 1000ms / 60fps
+    const targetFrameTime = 1000 / 60; 
     
-    // --- FPS Variables ---
     let showFps = false;
-    let lockFps = true; // Default to TRUE
+    let lockFps = true; 
     let framesThisSecond = 0;
     let lastFpsUpdateTime = 0;
 
@@ -85,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
         { up: ['ArrowUp'], left: 'ArrowLeft', right: 'ArrowRight' }
     ];
 
-    // --- GAMEPAD STATE ---
     let playerGamepadAssignments = { p1: null, p2: null };
     const gamepadAssignmentCooldown = {}; 
     const gamepads = {};
@@ -141,6 +235,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startGame() {
+        // Resume Audio Context on user interaction
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
         resetGame();
         messageScreen.classList.add('hidden');
         p2ScoreEl.classList.add('hidden');
@@ -179,7 +278,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showLevelMessage(`Level ${state.level}`, 1500, () => {
             state.levelInProgress = true;
             
-            // Set fresh timeline baseline right as game officially begins
             lastFrameTime = performance.now();
             lastRenderTime = lastFrameTime;
             accumulator = 0;
@@ -207,7 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.players[playerIndex] = player;
     }
 
-    // --- Level Generation & Clouds ---
     function prepopulateClouds(count) {
         const w = world.offsetWidth;
         const h = world.offsetHeight;
@@ -349,15 +446,12 @@ document.addEventListener('DOMContentLoaded', () => {
             lastRenderTime = timestamp;
         }
         
-        // --- FPS LOCK LOGIC ---
         if (lockFps) {
             let elapsedRender = timestamp - lastRenderTime;
-            // Throttle rendering to ~60 frames per second. (-1ms tolerance for minor timing jitter)
             if (elapsedRender < targetFrameTime - 1) { 
                 state.gameLoopId = requestAnimationFrame(gameLoop);
-                return; // Skip this frame
+                return; 
             }
-            // Align lastRenderTime smoothly to maintain steady 60hz intervals (VRR compatible)
             lastRenderTime = timestamp - (elapsedRender % targetFrameTime);
         } else {
             lastRenderTime = timestamp;
@@ -366,10 +460,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let dt = timestamp - lastFrameTime;
         lastFrameTime = timestamp;
 
-        // Cap dt to prevent massive logic jumps/freezes when tab is inactive
         if (dt > 250) dt = 250; 
         
-        // --- FPS COUNTER UPDATES ---
         if (showFps) {
             framesThisSecond++;
             if (timestamp - lastFpsUpdateTime >= 1000) {
@@ -379,14 +471,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Multiplier immediately affects how much frame 'time' we are getting
         accumulator += dt * gameSpeed;
 
         if (state.gameOver) return;
 
         let logicUpdated = false;
         
-        // Fixed-step loop guarantees deterministic physics
         while (accumulator >= targetFrameTime) {
             if(state.levelInProgress){
                 handleCloudGeneration();
@@ -396,7 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePlayers();
                 handleCollisions();
                 
-                // Clock is synced directly to game simulation steps
                 if (!state.devMode) {
                     state.timerAccumulator += targetFrameTime;
                     if (state.timerAccumulator >= 1000) {
@@ -409,7 +498,6 @@ document.addEventListener('DOMContentLoaded', () => {
             logicUpdated = true;
         }
 
-        // Only redraw if logic was executed or we're waiting for level to start
         if (logicUpdated || !state.levelInProgress) {
             drawPlayers();
             updateCamera();
@@ -523,11 +611,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Player & Camera Updates ---
     function updatePlayers() {
         const worldWidth = world.offsetWidth;
         const worldHeight = world.offsetHeight;
-        const screenHeight = 720; // Fixed internal height
+        const screenHeight = 720;
 
         if (!state.isTwoPlayer || state.players.length < 2 || !state.players[1]) {
             const p = state.players[0];
@@ -599,8 +686,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- State Changers & Handlers ---
     function collectFlower(flower, index, player) {
+        // Play Sound
+        playFlowerSound();
+
         flower.el.remove();
         if (flower.hitboxEl) flower.hitboxEl.remove();
         state.flowers.splice(index, 1);
@@ -666,7 +755,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Drawing & UI ---
     function updateHUD() {
         p1ScoreEl.textContent = `P1: ${state.players[0]?.score || 0}`;
         if (state.isTwoPlayer) {
@@ -701,11 +789,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function showLevelMessage(text, duration, callback) {
         levelMessageScreen.textContent = text; levelMessageScreen.classList.remove('hidden');
-        // Factor in game speed so the delays sync up visually with the flow of the game
         setTimeout(() => { levelMessageScreen.classList.add('hidden'); if (callback) callback(); }, duration / gameSpeed);
     }
     
-    // --- Utility Functions ---
     function createGameObject(className, emoji, x, y) {
         const el = document.createElement('div');
         el.className = `game-object ${className}`; el.textContent = emoji;
@@ -728,7 +814,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function clearDynamicElements() { world.innerHTML = ''; }
 
-    // --- Dev Mode ---
     function toggleDevMode() {
         state.devMode = !state.devMode;
         devIndicator.classList.toggle('hidden', !state.devMode);
@@ -741,7 +826,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Event Listeners ---
     window.addEventListener('keydown', e => { 
         const key = e.key.toLowerCase();
         if (key === 'j' && !e.repeat) {
@@ -774,7 +858,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     window.addEventListener('keyup', e => { if (e.key in keys) { e.preventDefault(); keys[e.key] = false; } });
     
-    // --- GAMEPAD CONNECTION LISTENERS ---
     window.addEventListener("gamepadconnected", e => {
         console.log(`Gamepad connected at index ${e.gamepad.index}: ${e.gamepad.id}.`);
         gamepads[e.gamepad.index] = e.gamepad;
@@ -796,8 +879,8 @@ document.addEventListener('DOMContentLoaded', () => {
     helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
     externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
-    
-    // Connect Help Menu Settings UI
+    mobileToggleBtn.addEventListener('click', goFull);
+
     speedSelect.addEventListener('change', (e) => {
         gameSpeed = parseFloat(e.target.value);
         console.log(`Game speed updated to: ${gameSpeed}x`);
@@ -814,10 +897,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     lockFpsCheckbox.addEventListener('change', (e) => {
         lockFps = e.target.checked;
-        lastRenderTime = performance.now(); // Reset sync timing when toggled
+        lastRenderTime = performance.now(); 
     });
 
-    // --- MOBILE CONTROL LISTENERS ---
     function setupMobileControls() {
         if (!mobileControls) return;
 
@@ -846,6 +928,5 @@ document.addEventListener('DOMContentLoaded', () => {
         addControlListener(mobileUpBtn, 'w');
     }
 
-    // --- INITIALIZE ---
     setupMobileControls();
 });

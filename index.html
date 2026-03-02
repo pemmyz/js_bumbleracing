@@ -12,7 +12,7 @@
 <body>
 
     <!-- Mobile/Fullscreen Toggle -->
-    <button id="mobile-btn" onclick="goFull()">📱 Fullscreen / Mobile Controls</button>
+    <button id="mobile-btn">📱 Fullscreen / Mobile Controls</button>
 
     <!-- The Game Container -->
     <div id="game-container">
@@ -37,7 +37,7 @@
                 <div class="hud-item" id="timer">⏱️ 3:00</div>
                 <div class="hud-item" id="lives">LIVES: 🐝🐝🐝</div>
                 
-                <!-- FPS Counter: Absolutely positioned to not disrupt the row above -->
+                <!-- FPS Counter -->
                 <div class="hud-item hidden" id="fps-counter">FPS: 60</div>
                 
                 <div id="dev-mode-indicator" class="hidden">DEV MODE</div>
@@ -86,7 +86,6 @@
                         <label><input type="checkbox" id="toggle-fps"> Show FPS Counter</label>
                     </div>
                     <div class="settings-row">
-                        <!-- Checked by default -->
                         <label><input type="checkbox" id="lock-fps" checked> Lock FPS to 60</label>
                     </div>
                 </div>
@@ -101,7 +100,7 @@
         </div>
     </div>
 
-    <!-- Mobile Touch Controls (Only visible in Fullscreen/Mobile Mode) -->
+    <!-- Mobile Touch Controls -->
     <div id="mobile-controls">
         <div id="mobile-dpad">
             <button id="mobile-left" class="mobile-control-btn">◀</button>
@@ -113,12 +112,5 @@
     </div>
 
     <script src="script.js"></script>
-    <script>
-        function goFull() {
-            const el = document.documentElement;
-            if (el.requestFullscreen) el.requestFullscreen();
-            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        }
-    </script>
 </body>
 </html>

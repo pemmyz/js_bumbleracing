@@ -1,3 +1,5 @@
+// v1.6.2
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- ELEMENT SELECTORS ---

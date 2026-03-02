@@ -1,6 +1,166 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- AUDIO SYSTEM SETUP ---
+    // 1. Force 'interactive' latency
+    // 2. Allow browser to choose native sample rate (prevents resampling lag)
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContextClass({ 
+        latencyHint: 'interactive',
+        sampleRate: 44100 // Common native rate for Android, reduces resampling overhead
+    });
 
-    // --- ELEMENT SELECTORS ---
+    // --- ANDROID LAG FIX: THE SILENCE KEEPER ---
+    // We play a silent sound continuously to stop Android from powering down the audio hardware.
+    let audioUnlocked = false;
+
+    function unlockAudio() {
+        if (audioUnlocked) return;
+
+        // Resume the context if suspended (Chrome policy)
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        // Create an empty buffer source (0.1 seconds of silence)
+        const buffer = audioContext.createBuffer(1, 1, 22050);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+
+        // --- THE KEY FIX FOR ANDROID ---
+        // Create an oscillator that plays absolute silence continuously.
+        // This keeps the audio thread active/hot.
+        const idler = audioContext.createOscillator();
+        const idlerGain = audioContext.createGain();
+        idlerGain.gain.value = 0.001; // Extremely low volume (inaudible but active)
+        idler.connect(idlerGain);
+        idlerGain.connect(audioContext.destination);
+        idler.start(0);
+        
+        console.log("Audio unlocked and hardware warmed up.");
+        audioUnlocked = true;
+
+        // Remove listeners so we don't do this again
+        ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(event => {
+            document.body.removeEventListener(event, unlockAudio);
+        });
+    }
+
+    // Attach unlock to EVERY interaction type to ensure we catch the first one
+    ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(event => {
+        document.body.addEventListener(event, unlockAudio, { once: true });
+    });
+
+    // --- Audio Nodes Setup ---
+    const limiter = audioContext.createDynamicsCompressor();
+    limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
+    limiter.connect(audioContext.destination);
+
+    // Generate White Noise Buffer (Pre-calculated)
+    const bufferSize = audioContext.sampleRate * 2; 
+    const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+
+    function finalVolume() {
+        return 0.2; 
+    }
+
+    // --- Sound Effects Logic ---
+    let isTinkNext = true;
+
+    function playFlowerSound() {
+        // Just in case unlock failed earlier
+        if (audioContext.state === 'suspended') audioContext.resume();
+
+        if (isTinkNext) {
+            playTink();
+        } else {
+            playTonk();
+        }
+        isTinkNext = !isTinkNext; 
+    }
+
+    function playTink() {
+        const now = audioContext.currentTime;
+        
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1500, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+        
+        // Instant attack
+        gain.gain.setValueAtTime(1.5 * finalVolume(), now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        
+        // Noise
+        const noise = audioContext.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = audioContext.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.value = 2000;
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0.5 * finalVolume(), now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(limiter);
+
+        osc.connect(gain);
+        gain.connect(limiter);
+        
+        osc.start(now);
+        osc.stop(now + 0.1);
+        noise.start(now);
+        noise.stop(now + 0.05);
+    }
+    
+    function playTonk() {
+        const now = audioContext.currentTime;
+        
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(450, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+        
+        gain.gain.setValueAtTime(2.0 * finalVolume(), now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 600;
+        
+        const noise = audioContext.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = audioContext.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 800;
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(1 * finalVolume(), now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(limiter);
+        
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(limiter);
+        
+        osc.start(now);
+        osc.stop(now + 0.2);
+        noise.start(now);
+        noise.stop(now + 0.05);
+    }
+
+    // --- Element Selectors ---
     const gameArea = document.getElementById('game-area');
     const world = document.getElementById('world');
     const p1ScoreEl = document.getElementById('p1-score');
@@ -15,401 +175,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const helpScreen = document.getElementById('help-screen');
     const helpButton = document.getElementById('help-button');
     const closeHelpButton = document.getElementById('close-help-button');
-    const restartGameButton = document.getElementById('restart-game-button');
     const devIndicator = document.getElementById('dev-mode-indicator');
     const externalHelpButton = document.getElementById('external-help-button');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
-
-    // --- SETTINGS SELECTORS ---
+    
+    // --- Settings Selectors ---
     const speedSelect = document.getElementById('speed-select');
-    const audioModeSelect = document.getElementById('audio-mode');
-    const latencyHintSelect = document.getElementById('latency-hint');
-    const volumeSlider = document.getElementById('volume-slider');
-    const volumeValueEl = document.getElementById('volume-value');
     const fpsCounterEl = document.getElementById('fps-counter');
     const toggleFpsCheckbox = document.getElementById('toggle-fps');
     const lockFpsCheckbox = document.getElementById('lock-fps');
     
-    // --- ADVANCED AUDIO SELECTORS ---
-    const processingModeSelect = document.getElementById('processing-mode');
-    const noiseGenSelect = document.getElementById('noise-gen');
-    const useBufferPoolCheckbox = document.getElementById('use-buffer-pool');
-
-    // --- MOBILE CONTROLS SELECTORS ---
+    // --- Mobile Control Selectors ---
     const mobileControls = document.getElementById('mobile-controls');
     const mobileLeftBtn = document.getElementById('mobile-left');
     const mobileRightBtn = document.getElementById('mobile-right');
     const mobileUpBtn = document.getElementById('mobile-up');
     const mobileToggleBtn = document.getElementById('mobile-btn');
-
-    // --- SOUND ENGINE ---
-    class SoundEngine {
-        constructor() {
-            this.mode = 'buffered'; 
-            this.latencyHint = 'interactive';
-            this.noiseGenMode = 'offline';
-            this.processingMode = 'worklet'; // Set default to worklet
-            this.useBufferPool = false;
-            
-            this.ctx = null;
-            this.masterGain = null;
-            this.limiter = null;
-            this.workletNode = null;
-            
-            this.buffers = { tink: null, tonk: null };
-            this.noiseBuffer = null;
-            this.isTinkNext = true;
-            this.unlocked = false;
-
-            // Buffer Pool Variables
-            this.BUFFER_POOL_SIZE = 8;
-            this.tinkPool = [];
-            this.tonkPool = [];
-            this.poolIndex = 0;
-
-            this.initContext();
-        }
-
-        async initContext() {
-            if (this.ctx) this.ctx.close();
-
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            this.ctx = new AudioContextClass({ 
-                latencyHint: this.latencyHint,
-                sampleRate: 44100
-            });
-
-            this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.value = 0.5;
-
-            this.limiter = this.ctx.createDynamicsCompressor();
-            this.limiter.threshold.setValueAtTime(-10, this.ctx.currentTime);
-
-            this.masterGain.connect(this.limiter);
-            this.limiter.connect(this.ctx.destination);
-
-            if (this.processingMode === 'worklet' && this.ctx.audioWorklet) {
-                console.log("⚡ AudioWorklet pipeline requested.");
-                try {
-                    await this.ctx.audioWorklet.addModule('flower-worklet.js');
-                    this.workletNode = new AudioWorkletNode(this.ctx, 'flower-processor');
-                    this.workletNode.connect(this.masterGain);
-                    console.log("✅ AudioWorklet successfully loaded and connected.");
-                } catch(e) {
-                    console.error("AudioWorklet failed to load, falling back to standard thread.", e);
-                    this.processingMode = 'standard';
-                }
-            } else {
-                this.workletNode = null;
-            }
-
-            this.noiseBuffer = await this.createNoiseBuffer();
-        }
-
-        async createNoiseBuffer() {
-            const bufferSize = this.ctx.sampleRate * 2;
-            
-            if (this.noiseGenMode === 'offline') {
-                console.log("Generating noise out of runtime (OfflineAudioContext)...");
-                const offlineCtx = new OfflineAudioContext(1, bufferSize, this.ctx.sampleRate);
-                const buffer = offlineCtx.createBuffer(1, bufferSize, offlineCtx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
-                
-                const src = offlineCtx.createBufferSource();
-                src.buffer = buffer;
-                src.connect(offlineCtx.destination);
-                src.start(0);
-                return await offlineCtx.startRendering();
-            } else {
-                console.log("Generating noise synchronously (Heavy)...");
-                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
-                return buffer;
-            }
-        }
-
-        async createOfflineBuffer(duration, renderCallback) {
-            const offlineCtx = new OfflineAudioContext(1, 44100 * duration, 44100);
-            const master = offlineCtx.createGain();
-            master.connect(offlineCtx.destination);
-            
-            renderCallback(offlineCtx, master, this.noiseBuffer);
-            return await offlineCtx.startRendering();
-        }
-
-        async preloadSounds() {
-            console.log("🔊 Pre-Rendering Tink/Tonk Buffers into Memory...");
-
-            this.buffers.tink = await this.createOfflineBuffer(0.2, (ctx, out, noiseBuf) => {
-                const osc = ctx.createOscillator();
-                osc.type = 'sine';
-                osc.frequency.value = 1500;
-                osc.frequency.exponentialRampToValueAtTime(800, 0.1);
-                const env = ctx.createGain();
-                env.gain.setValueAtTime(1.5, 0);
-                env.gain.exponentialRampToValueAtTime(0.001, 0.1);
-                osc.connect(env).connect(out);
-                osc.start(0);
-
-                if (noiseBuf) {
-                    const src = ctx.createBufferSource();
-                    src.buffer = noiseBuf;
-                    const filter = ctx.createBiquadFilter();
-                    filter.type = 'highpass';
-                    filter.frequency.value = 2000;
-                    const nEnv = ctx.createGain();
-                    nEnv.gain.setValueAtTime(0.5, 0);
-                    nEnv.gain.exponentialRampToValueAtTime(0.001, 0.05);
-                    src.connect(filter).connect(nEnv).connect(out);
-                    src.start(0);
-                }
-            });
-
-            this.buffers.tonk = await this.createOfflineBuffer(0.3, (ctx, out, noiseBuf) => {
-                const osc = ctx.createOscillator();
-                osc.type = 'triangle';
-                osc.frequency.value = 450;
-                osc.frequency.exponentialRampToValueAtTime(200, 0.2);
-                const filter = ctx.createBiquadFilter();
-                filter.type = 'bandpass';
-                filter.frequency.value = 600;
-                const env = ctx.createGain();
-                env.gain.setValueAtTime(2.0, 0);
-                env.gain.exponentialRampToValueAtTime(0.001, 0.2);
-                osc.connect(filter).connect(env).connect(out);
-                osc.start(0);
-
-                if (noiseBuf) {
-                    const src = ctx.createBufferSource();
-                    src.buffer = noiseBuf;
-                    const nFilter = ctx.createBiquadFilter();
-                    nFilter.type = 'bandpass';
-                    nFilter.frequency.value = 800;
-                    const nEnv = ctx.createGain();
-                    nEnv.gain.setValueAtTime(1.0, 0);
-                    nEnv.gain.exponentialRampToValueAtTime(0.001, 0.05);
-                    src.connect(nFilter).connect(nEnv).connect(out);
-                    src.start(0);
-                }
-            });
-
-            if (this.useBufferPool) this.initPools();
-            console.log("✅ Audio Buffers Ready.");
-        }
-
-        initPools() {
-            if (!this.buffers.tink || !this.buffers.tonk) return;
-            this.tinkPool = [];
-            this.tonkPool = [];
-            
-            for (let i = 0; i < this.BUFFER_POOL_SIZE; i++) {
-                const tinkSrc = this.ctx.createBufferSource();
-                tinkSrc.buffer = this.buffers.tink;
-                this.tinkPool.push(tinkSrc);
-
-                const tonkSrc = this.ctx.createBufferSource();
-                tonkSrc.buffer = this.buffers.tonk;
-                this.tonkPool.push(tonkSrc);
-            }
-            console.log(`Initialized Buffer Pool (Size: ${this.BUFFER_POOL_SIZE})`);
-        }
-
-        playFlowerSound() {
-            if (this.mode === 'buffered') {
-                if (this.useBufferPool && this.tinkPool.length > 0 && this.processingMode !== 'worklet') {
-                    this.playFromPool();
-                } else {
-                    this.isTinkNext ? this.playBuffer(this.buffers.tink) : this.playBuffer(this.buffers.tonk);
-                }
-            } else {
-                this.isTinkNext ? this.playTinkRealtime() : this.playTonkRealtime();
-            }
-            this.isTinkNext = !this.isTinkNext;
-        }
-
-        playBuffer(buffer) {
-            if (!buffer) return;
-            
-            if (this.processingMode === 'worklet' && this.workletNode) {
-                // Pipe to the Worklet thread
-                this.workletNode.port.postMessage({
-                    type: 'play',
-                    buffer: buffer.getChannelData(0)
-                });
-            } else {
-                // Fallback / Standard implementation
-                const source = this.ctx.createBufferSource();
-                source.buffer = buffer;
-                source.connect(this.masterGain);
-                source.start(0);
-            }
-        }
-
-        playFromPool() {
-            const pool = this.isTinkNext ? this.tinkPool : this.tonkPool;
-            const bufferRef = this.isTinkNext ? this.buffers.tink : this.buffers.tonk;
-            
-            const src = pool[this.poolIndex];
-            src.connect(this.masterGain);
-            src.start(0);
-            
-            const newSrc = this.ctx.createBufferSource();
-            newSrc.buffer = bufferRef;
-            pool[this.poolIndex] = newSrc;
-            
-            this.poolIndex = (this.poolIndex + 1) % this.BUFFER_POOL_SIZE;
-        }
-
-        playTinkRealtime() {
-            const now = this.ctx.currentTime;
-            const osc = this.ctx.createOscillator();
-            osc.frequency.setValueAtTime(1500, now);
-            osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
-            const env = this.ctx.createGain();
-            env.gain.setValueAtTime(1.5, now);
-            env.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-            osc.connect(env).connect(this.masterGain);
-            osc.start(now);
-            osc.stop(now + 0.1);
-        }
-
-        playTonkRealtime() {
-            const now = this.ctx.currentTime;
-            const osc = this.ctx.createOscillator();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(450, now);
-            osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
-            const env = this.ctx.createGain();
-            env.gain.setValueAtTime(2.0, now);
-            env.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-            osc.connect(env).connect(this.masterGain);
-            osc.start(now);
-            osc.stop(now + 0.2);
-        }
-
-        setVolume(val) { if (this.masterGain) this.masterGain.gain.value = val; }
-        setMode(mode) { this.mode = mode; console.log(`Audio Mode: ${mode}`); }
-        
-        setLatencyHint(hint) {
-            if (hint === this.latencyHint) return;
-            this.latencyHint = hint;
-            this.rebootContext();
-        }
-
-        setAdvancedOptions(options) {
-            let needsReboot = false;
-            if (options.processingMode && options.processingMode !== this.processingMode) {
-                this.processingMode = options.processingMode;
-                needsReboot = true;
-            }
-            if (options.useBufferPool !== undefined) {
-                this.useBufferPool = options.useBufferPool;
-                if (this.useBufferPool) this.initPools();
-            }
-            if (options.noiseGenMode && options.noiseGenMode !== this.noiseGenMode) {
-                this.noiseGenMode = options.noiseGenMode;
-                needsReboot = true;
-            }
-            if (needsReboot) this.rebootContext();
-        }
-
-        rebootContext() {
-            console.log("Rebooting Audio Engine to apply core settings...");
-            this.initContext();
-            this.unlocked = false;
-            this.unlock();
-        }
-
-        unlock() {
-            if (this.unlocked) return;
-            if (this.ctx.state === 'suspended') this.ctx.resume();
-
-            const buffer = this.ctx.createBuffer(1, 1, 22050);
-            const source = this.ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(this.ctx.destination);
-            source.start(0);
-
-            const idler = this.ctx.createOscillator();
-            const idlerGain = this.ctx.createGain();
-            idlerGain.gain.value = 0.001; 
-            idler.connect(idlerGain).connect(this.ctx.destination);
-            idler.start(0);
-
-            this.unlocked = true;
-            console.log("🔓 Audio Unlocked.");
-            if (!this.buffers.tink) this.preloadSounds();
-        }
-    }
-
-    const soundEngine = new SoundEngine();
-
-    // --- INTERACTION HANDLERS ---
-    const events = ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'];
-    events.forEach(e => document.body.addEventListener(e, () => soundEngine.unlock(), { once: true, capture: true }));
-
-    // --- SETTINGS LISTENERS ---
-    volumeSlider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
-        volumeValueEl.textContent = `${val}%`;
-        soundEngine.setVolume(val / 100);
-    });
-
-    audioModeSelect.addEventListener('change', (e) => {
-        let mappedMode = e.target.value === 'procedural' ? 'realtime' : 'buffered';
-        soundEngine.setMode(mappedMode);
-    });
-
-    latencyHintSelect.addEventListener('change', (e) => {
-        soundEngine.setLatencyHint(e.target.value);
-    });
-
-    processingModeSelect.addEventListener('change', (e) => {
-        soundEngine.setAdvancedOptions({ processingMode: e.target.value });
-    });
-
-    noiseGenSelect.addEventListener('change', (e) => {
-        soundEngine.setAdvancedOptions({ noiseGenMode: e.target.value });
-    });
-
-    useBufferPoolCheckbox.addEventListener('change', (e) => {
-        soundEngine.setAdvancedOptions({ useBufferPool: e.target.checked });
-    });
-
-    speedSelect.addEventListener('change', (e) => {
-        gameSpeed = parseFloat(e.target.value);
-        console.log(`Game speed updated to: ${gameSpeed}x`);
-    });
-
-    toggleFpsCheckbox.addEventListener('change', (e) => {
-        showFps = e.target.checked;
-        fpsCounterEl.classList.toggle('hidden', !showFps);
-        if (showFps) {
-            framesThisSecond = 0;
-            lastFpsUpdateTime = performance.now();
-        }
-    });
-
-    lockFpsCheckbox.addEventListener('change', (e) => {
-        lockFps = e.target.checked;
-        lastRenderTime = performance.now(); 
-    });
-
-    // --- BUTTON LISTENERS ---
-    startButton.addEventListener('click', startGame);
-    helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
-    closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
-    
-    restartGameButton.addEventListener('click', () => {
-        helpScreen.classList.add('hidden');
-        startGame();
-    });
-
-    externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
-    mobileToggleBtn.addEventListener('click', goFull);
 
     // --- Scaling Logic & Mobile Mode ---
     function scaleGame() {
@@ -432,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function goFull() {
-        soundEngine.unlock(); 
+        unlockAudio(); // Try to unlock on fullscreen button press too
         const el = document.documentElement;
         if (el.requestFullscreen) el.requestFullscreen();
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
@@ -442,6 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener("fullscreenchange", scaleGame);
     window.addEventListener("webkitfullscreenchange", scaleGame);
     scaleGame();
+
 
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
@@ -519,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startGame() {
-        soundEngine.unlock(); 
+        unlockAudio(); // Ensure audio is unlocked on start click
         resetGame();
         messageScreen.classList.add('hidden');
         p2ScoreEl.classList.add('hidden');
@@ -967,7 +750,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function collectFlower(flower, index, player) {
-        soundEngine.playFlowerSound();
+        // Play Sound
+        playFlowerSound();
 
         flower.el.remove();
         if (flower.hitboxEl) flower.hitboxEl.remove();
@@ -1154,6 +938,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    startButton.addEventListener('click', startGame);
+    helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
+    closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
+    externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
+    mobileToggleBtn.addEventListener('click', goFull);
+
+    speedSelect.addEventListener('change', (e) => {
+        gameSpeed = parseFloat(e.target.value);
+        console.log(`Game speed updated to: ${gameSpeed}x`);
+    });
+
+    toggleFpsCheckbox.addEventListener('change', (e) => {
+        showFps = e.target.checked;
+        fpsCounterEl.classList.toggle('hidden', !showFps);
+        if (showFps) {
+            framesThisSecond = 0;
+            lastFpsUpdateTime = performance.now();
+        }
+    });
+
+    lockFpsCheckbox.addEventListener('change', (e) => {
+        lockFps = e.target.checked;
+        lastRenderTime = performance.now(); 
+    });
+
     function setupMobileControls() {
         if (!mobileControls) return;
 
@@ -1161,7 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pressKey = (e) => {
                 e.preventDefault();
                 keys[key] = true;
-                soundEngine.unlock(); // Unlock on control press
+                unlockAudio(); // Important: unlocking audio on touch events
             };
             const releaseKey = (e) => {
                 e.preventDefault();

@@ -1,4 +1,4 @@
-// v1.6.4 - Ultimate Mobile Audio Fix
+// v1.6.2 (Reverted Audio Engine for Mobile Compatibility)
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -51,8 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
             this.mode = 'buffered'; 
             this.latencyHint = 'interactive';
             this.noiseGenMode = 'offline';
-            this.processingMode = 'worklet'; 
-            this.useBufferPool = true; 
+            this.processingMode = 'worklet'; // Set default to worklet
+            this.useBufferPool = false;
             
             this.ctx = null;
             this.masterGain = null;
@@ -63,7 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
             this.noiseBuffer = null;
             this.isTinkNext = true;
             this.unlocked = false;
-            this.isPreloading = false;
 
             // Buffer Pool Variables
             this.BUFFER_POOL_SIZE = 8;
@@ -78,17 +77,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (this.ctx) this.ctx.close();
 
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            
-            // Fix 1: Fallback for strict mobile webviews that reject config objects
-            try {
-                this.ctx = new AudioContextClass({ latencyHint: this.latencyHint });
-            } catch(e) {
-                console.warn("LatencyHint rejected by browser, using default AudioContext.");
-                this.ctx = new AudioContextClass();
-            }
+            this.ctx = new AudioContextClass({ 
+                latencyHint: this.latencyHint,
+                sampleRate: 44100
+            });
 
             this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.value = parseInt(volumeSlider.value) / 100;
+            this.masterGain.gain.value = 0.5;
 
             this.limiter = this.ctx.createDynamicsCompressor();
             this.limiter.threshold.setValueAtTime(-10, this.ctx.currentTime);
@@ -96,43 +91,29 @@ document.addEventListener('DOMContentLoaded', () => {
             this.masterGain.connect(this.limiter);
             this.limiter.connect(this.ctx.destination);
 
-            if (this.processingMode === 'worklet') {
-                if (this.ctx.audioWorklet) {
-                    try {
-                        await this.ctx.audioWorklet.addModule('flower-worklet.js');
-                        this.workletNode = new AudioWorkletNode(this.ctx, 'flower-processor');
-                        this.workletNode.connect(this.masterGain);
-                        console.log("✅ AudioWorklet successfully loaded.");
-                    } catch(e) {
-                        console.warn("AudioWorklet missing or blocked. Falling back to standard thread.");
-                        this.fallbackToStandard();
-                    }
-                } else {
-                    console.warn("AudioWorklet not supported. Falling back to standard thread.");
-                    this.fallbackToStandard();
+            if (this.processingMode === 'worklet' && this.ctx.audioWorklet) {
+                console.log("⚡ AudioWorklet pipeline requested.");
+                try {
+                    await this.ctx.audioWorklet.addModule('flower-worklet.js');
+                    this.workletNode = new AudioWorkletNode(this.ctx, 'flower-processor');
+                    this.workletNode.connect(this.masterGain);
+                    console.log("✅ AudioWorklet successfully loaded and connected.");
+                } catch(e) {
+                    console.error("AudioWorklet failed to load, falling back to standard thread.", e);
+                    this.processingMode = 'standard';
                 }
             } else {
                 this.workletNode = null;
             }
 
-            try {
-                this.noiseBuffer = await this.createNoiseBuffer();
-            } catch (e) {
-                console.warn("Noise rendering blocked, proceeding without noise.", e);
-                this.noiseBuffer = null;
-            }
-        }
-
-        fallbackToStandard() {
-            this.processingMode = 'standard';
-            this.workletNode = null;
-            if (processingModeSelect) processingModeSelect.value = 'standard';
+            this.noiseBuffer = await this.createNoiseBuffer();
         }
 
         async createNoiseBuffer() {
             const bufferSize = this.ctx.sampleRate * 2;
             
             if (this.noiseGenMode === 'offline') {
+                console.log("Generating noise out of runtime (OfflineAudioContext)...");
                 const offlineCtx = new OfflineAudioContext(1, bufferSize, this.ctx.sampleRate);
                 const buffer = offlineCtx.createBuffer(1, bufferSize, offlineCtx.sampleRate);
                 const data = buffer.getChannelData(0);
@@ -144,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 src.start(0);
                 return await offlineCtx.startRendering();
             } else {
+                console.log("Generating noise synchronously (Heavy)...");
                 const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
                 const data = buffer.getChannelData(0);
                 for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
@@ -152,25 +134,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async createOfflineBuffer(duration, renderCallback) {
-            try {
-                const sr = this.ctx.sampleRate;
-                // Fix 2: Math.ceil prevents floating point frame errors on Android hardware (e.g., 48000Hz)
-                const frameCount = Math.ceil(sr * duration); 
-                const offlineCtx = new OfflineAudioContext(1, frameCount, sr);
-                const master = offlineCtx.createGain();
-                master.connect(offlineCtx.destination);
-                
-                renderCallback(offlineCtx, master, this.noiseBuffer);
-                return await offlineCtx.startRendering();
-            } catch (e) {
-                console.error("OfflineAudioContext rendering failed on this device.", e);
-                return null;
-            }
+            const offlineCtx = new OfflineAudioContext(1, 44100 * duration, 44100);
+            const master = offlineCtx.createGain();
+            master.connect(offlineCtx.destination);
+            
+            renderCallback(offlineCtx, master, this.noiseBuffer);
+            return await offlineCtx.startRendering();
         }
 
         async preloadSounds() {
-            if (this.isPreloading) return;
-            this.isPreloading = true;
             console.log("🔊 Pre-Rendering Tink/Tonk Buffers into Memory...");
 
             this.buffers.tink = await this.createOfflineBuffer(0.2, (ctx, out, noiseBuf) => {
@@ -226,23 +198,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            if (!this.buffers.tink || !this.buffers.tonk) {
-                console.warn("⚠️ Buffers failed to generate. Permanent Real-time Fallback Mode active.");
-                this.mode = 'realtime';
-                if (audioModeSelect) audioModeSelect.value = 'procedural';
-                this.isPreloading = false;
-                return;
-            }
-
             if (this.useBufferPool) this.initPools();
-
-            if (this.processingMode === 'worklet' && this.workletNode) {
-                this.workletNode.port.postMessage({ type: 'load', name: 'tink', buffer: this.buffers.tink.getChannelData(0) });
-                this.workletNode.port.postMessage({ type: 'load', name: 'tonk', buffer: this.buffers.tonk.getChannelData(0) });
-            }
-
             console.log("✅ Audio Buffers Ready.");
-            this.isPreloading = false;
         }
 
         initPools() {
@@ -263,11 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         playFlowerSound() {
-            if (!this.ctx || !this.masterGain) return;
-
-            // Fix 3: Fail-safe seamless fallback! 
-            // If the user taps while OfflineBuffers are still rendering, synthesize it instantly instead of silent failure.
-            if (this.mode === 'buffered' && this.buffers.tink && this.buffers.tonk) {
+            if (this.mode === 'buffered') {
                 if (this.useBufferPool && this.tinkPool.length > 0 && this.processingMode !== 'worklet') {
                     this.playFromPool();
                 } else {
@@ -281,10 +234,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         playBuffer(buffer) {
             if (!buffer) return;
+            
             if (this.processingMode === 'worklet' && this.workletNode) {
-                const soundName = buffer === this.buffers.tink ? 'tink' : 'tonk';
-                this.workletNode.port.postMessage({ type: 'play', name: soundName });
+                // Pipe to the Worklet thread
+                this.workletNode.port.postMessage({
+                    type: 'play',
+                    buffer: buffer.getChannelData(0)
+                });
             } else {
+                // Fallback / Standard implementation
                 const source = this.ctx.createBufferSource();
                 source.buffer = buffer;
                 source.connect(this.masterGain);
@@ -335,13 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setVolume(val) { if (this.masterGain) this.masterGain.gain.value = val; }
-        
-        setMode(mode) { 
-            this.mode = mode; 
-            if (mode === 'buffered' && !this.buffers.tink) {
-                this.preloadSounds();
-            }
-        }
+        setMode(mode) { this.mode = mode; console.log(`Audio Mode: ${mode}`); }
         
         setLatencyHint(hint) {
             if (hint === this.latencyHint) return;
@@ -367,51 +319,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         rebootContext() {
+            console.log("Rebooting Audio Engine to apply core settings...");
             this.initContext();
             this.unlocked = false;
             this.unlock();
         }
 
         unlock() {
-            if (!this.ctx) return;
-            
-            // Fix 4: Persistent resume check. Chrome Android heavily suspends backgrounded tabs.
-            if (this.ctx.state === 'suspended' || this.ctx.state === 'interrupted') {
-                this.ctx.resume().catch(e => console.warn("Audio Context resume forced by browser", e));
-            }
-
             if (this.unlocked) return;
+            if (this.ctx.state === 'suspended') this.ctx.resume();
 
-            // Use an actual silent oscillator to definitively crack mobile browser restrictions
-            try {
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                gain.gain.value = 0; // Silent
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start(0);
-                osc.stop(this.ctx.currentTime + 0.1);
-            } catch(e) {
-                console.warn("Silent oscillator unlock failed", e);
-            }
+            const buffer = this.ctx.createBuffer(1, 1, 22050);
+            const source = this.ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(this.ctx.destination);
+            source.start(0);
+
+            const idler = this.ctx.createOscillator();
+            const idlerGain = this.ctx.createGain();
+            idlerGain.gain.value = 0.001; 
+            idler.connect(idlerGain).connect(this.ctx.destination);
+            idler.start(0);
 
             this.unlocked = true;
-            console.log("🔓 Audio Engine strictly Unlocked.");
-            
-            if (!this.buffers.tink && this.mode === 'buffered') {
-                this.preloadSounds();
-            }
+            console.log("🔓 Audio Unlocked.");
+            if (!this.buffers.tink) this.preloadSounds();
         }
     }
 
     const soundEngine = new SoundEngine();
 
     // --- INTERACTION HANDLERS ---
-    // Persistent listener (Removed {once: true}) to continually catch Android suspensions
     const events = ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'];
-    events.forEach(e => document.body.addEventListener(e, () => {
-        soundEngine.unlock();
-    }, { capture: true }));
+    events.forEach(e => document.body.addEventListener(e, () => soundEngine.unlock(), { once: true, capture: true }));
 
     // --- SETTINGS LISTENERS ---
     volumeSlider.addEventListener('input', (e) => {
@@ -443,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     speedSelect.addEventListener('change', (e) => {
         gameSpeed = parseFloat(e.target.value);
+        console.log(`Game speed updated to: ${gameSpeed}x`);
     });
 
     toggleFpsCheckbox.addEventListener('change', (e) => {
@@ -516,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetFrameTime = 1000 / 60; 
     
     let showFps = false;
-    let lockFps = false; 
+    let lockFps = true; 
     let framesThisSecond = 0;
     let lastFpsUpdateTime = 0;
 
@@ -910,6 +851,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (faceButtonPressed && !isAlreadyAssigned) {
                 if (playerGamepadAssignments.p1 === null) {
                     playerGamepadAssignments.p1 = i;
+                    console.log(`Gamepad ${i} assigned to Player 1.`);
                     updateGamepadStatusHUD();
                     setAssignmentCooldown(i);
                 } else if (playerGamepadAssignments.p2 === null) {
@@ -918,8 +860,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         addPlayer(1, state.players[0].y, 0);
                         p2ScoreEl.classList.remove('hidden');
                         p2GpStatusEl.classList.remove('hidden');
+                        console.log("Player 2 (Gamepad) has joined the game!");
                     }
                     playerGamepadAssignments.p2 = i;
+                    console.log(`Gamepad ${i} assigned to Player 2.`);
                     updateGamepadStatusHUD();
                     setAssignmentCooldown(i);
                 }
@@ -931,6 +875,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pad1) {
                 applyGamepadControlsToPlayer(state.players[0], pad1);
             } else { 
+                console.log(`P1 Gamepad (Index ${playerGamepadAssignments.p1}) disconnected.`);
                 playerGamepadAssignments.p1 = null;
                 updateGamepadStatusHUD();
             }
@@ -941,6 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pad2) {
                 applyGamepadControlsToPlayer(state.players[1], pad2);
             } else { 
+                console.log(`P2 Gamepad (Index ${playerGamepadAssignments.p2}) disconnected.`);
                 playerGamepadAssignments.p2 = null;
                 updateGamepadStatusHUD();
             }
@@ -1175,6 +1121,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addPlayer(1, state.players[0].y, 0);
             p2ScoreEl.classList.remove('hidden');
             p2GpStatusEl.classList.remove('hidden'); 
+            console.log("Player 2 (Keyboard) has joined the game!");
         }
 
         if (key === 'h') {
@@ -1185,6 +1132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (state.devMode && state.levelInProgress) {
             if (key === 'n') {
+                console.log("DEV: Skipping to next level.");
                 nextLevel();
             }
         }
@@ -1192,9 +1140,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('keyup', e => { if (e.key in keys) { e.preventDefault(); keys[e.key] = false; } });
     
     window.addEventListener("gamepadconnected", e => {
+        console.log(`Gamepad connected at index ${e.gamepad.index}: ${e.gamepad.id}.`);
         gamepads[e.gamepad.index] = e.gamepad;
     });
     window.addEventListener("gamepaddisconnected", e => {
+        console.log(`Gamepad disconnected from index ${e.gamepad.index}: ${e.gamepad.id}.`);
         delete gamepads[e.gamepad.index];
         if (playerGamepadAssignments.p1 === e.gamepad.index) {
             playerGamepadAssignments.p1 = null;
@@ -1213,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pressKey = (e) => {
                 e.preventDefault();
                 keys[key] = true;
-                soundEngine.unlock(); 
+                soundEngine.unlock(); // Unlock on control press
             };
             const releaseKey = (e) => {
                 e.preventDefault();

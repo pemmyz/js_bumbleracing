@@ -1,166 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- AUDIO SYSTEM SETUP ---
-    // 1. Force 'interactive' latency
-    // 2. Allow browser to choose native sample rate (prevents resampling lag)
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    const audioContext = new AudioContextClass({ 
-        latencyHint: 'interactive',
-        sampleRate: 44100 // Common native rate for Android, reduces resampling overhead
-    });
+    // --- VERSION CONTROL ---
+    const CURRENT_VERSION = '1.3';
+    document.getElementById('game-version').textContent = `v${CURRENT_VERSION}`;
 
-    // --- ANDROID LAG FIX: THE SILENCE KEEPER ---
-    // We play a silent sound continuously to stop Android from powering down the audio hardware.
-    let audioUnlocked = false;
-
-    function unlockAudio() {
-        if (audioUnlocked) return;
-
-        // Resume the context if suspended (Chrome policy)
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-
-        // Create an empty buffer source (0.1 seconds of silence)
-        const buffer = audioContext.createBuffer(1, 1, 22050);
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.start(0);
-
-        // --- THE KEY FIX FOR ANDROID ---
-        // Create an oscillator that plays absolute silence continuously.
-        // This keeps the audio thread active/hot.
-        const idler = audioContext.createOscillator();
-        const idlerGain = audioContext.createGain();
-        idlerGain.gain.value = 0.001; // Extremely low volume (inaudible but active)
-        idler.connect(idlerGain);
-        idlerGain.connect(audioContext.destination);
-        idler.start(0);
-        
-        console.log("Audio unlocked and hardware warmed up.");
-        audioUnlocked = true;
-
-        // Remove listeners so we don't do this again
-        ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(event => {
-            document.body.removeEventListener(event, unlockAudio);
-        });
-    }
-
-    // Attach unlock to EVERY interaction type to ensure we catch the first one
-    ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(event => {
-        document.body.addEventListener(event, unlockAudio, { once: true });
-    });
-
-    // --- Audio Nodes Setup ---
-    const limiter = audioContext.createDynamicsCompressor();
-    limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
-    limiter.connect(audioContext.destination);
-
-    // Generate White Noise Buffer (Pre-calculated)
-    const bufferSize = audioContext.sampleRate * 2; 
-    const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-    }
-
-    function finalVolume() {
-        return 0.2; 
-    }
-
-    // --- Sound Effects Logic ---
-    let isTinkNext = true;
-
-    function playFlowerSound() {
-        // Just in case unlock failed earlier
-        if (audioContext.state === 'suspended') audioContext.resume();
-
-        if (isTinkNext) {
-            playTink();
-        } else {
-            playTonk();
-        }
-        isTinkNext = !isTinkNext; 
-    }
-
-    function playTink() {
-        const now = audioContext.currentTime;
-        
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1500, now);
-        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
-        
-        // Instant attack
-        gain.gain.setValueAtTime(1.5 * finalVolume(), now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        
-        // Noise
-        const noise = audioContext.createBufferSource();
-        noise.buffer = noiseBuffer;
-        const noiseFilter = audioContext.createBiquadFilter();
-        noiseFilter.type = 'highpass';
-        noiseFilter.frequency.value = 2000;
-        const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(0.5 * finalVolume(), now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(limiter);
-
-        osc.connect(gain);
-        gain.connect(limiter);
-        
-        osc.start(now);
-        osc.stop(now + 0.1);
-        noise.start(now);
-        noise.stop(now + 0.05);
-    }
-    
-    function playTonk() {
-        const now = audioContext.currentTime;
-        
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(450, now);
-        osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
-        
-        gain.gain.setValueAtTime(2.0 * finalVolume(), now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-        
-        const filter = audioContext.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 600;
-        
-        const noise = audioContext.createBufferSource();
-        noise.buffer = noiseBuffer;
-        const noiseFilter = audioContext.createBiquadFilter();
-        noiseFilter.type = 'bandpass';
-        noiseFilter.frequency.value = 800;
-        const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(1 * finalVolume(), now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(limiter);
-        
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(limiter);
-        
-        osc.start(now);
-        osc.stop(now + 0.2);
-        noise.start(now);
-        noise.stop(now + 0.05);
-    }
-
-    // --- Element Selectors ---
+    // --- ELEMENT SELECTORS ---
     const gameArea = document.getElementById('game-area');
     const world = document.getElementById('world');
     const p1ScoreEl = document.getElementById('p1-score');
@@ -180,13 +23,237 @@ document.addEventListener('DOMContentLoaded', () => {
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
     
-    // --- Settings Selectors ---
+    // --- SETTINGS SELECTORS ---
     const speedSelect = document.getElementById('speed-select');
+    const audioModeSelect = document.getElementById('audio-mode');
+    const volumeSlider = document.getElementById('volume-slider');
+    const volumeValueEl = document.getElementById('volume-value');
     const fpsCounterEl = document.getElementById('fps-counter');
     const toggleFpsCheckbox = document.getElementById('toggle-fps');
     const lockFpsCheckbox = document.getElementById('lock-fps');
-    
-    // --- Mobile Control Selectors ---
+
+    // --- SOUND ENGINE CLASS (Modular & Optimized) ---
+    class SoundEngine {
+        constructor() {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContextClass({ latencyHint: 'interactive', sampleRate: 44100 });
+            
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.value = 0.5;
+            
+            this.limiter = this.ctx.createDynamicsCompressor();
+            this.limiter.threshold.setValueAtTime(-10, this.ctx.currentTime);
+            
+            // Connection Graph: Source -> Master -> Limiter -> Speaker
+            this.masterGain.connect(this.limiter);
+            this.limiter.connect(this.ctx.destination);
+            
+            this.buffers = { tink: null, tonk: null };
+            this.noiseBuffer = this.createNoiseBuffer(this.ctx);
+            this.isTinkNext = true;
+            this.audioUnlocked = false;
+            this.useBufferedAudio = true;
+        }
+
+        createNoiseBuffer(ctx) {
+            const bufferSize = ctx.sampleRate * 2;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            return buffer;
+        }
+
+        // --- PRE-RENDERING LOGIC (OfflineAudioContext) ---
+        // Generates buffers in the background to avoid CPU cost during play
+        async createSoundBuffer(duration, buildGraphCallback) {
+            const sampleRate = 44100;
+            const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+            const master = offlineCtx.createGain();
+            master.connect(offlineCtx.destination);
+            
+            // Helper for offline context noise
+            const offlineNoise = this.createNoiseBuffer(offlineCtx);
+
+            buildGraphCallback(offlineCtx, master, offlineNoise);
+
+            return await offlineCtx.startRendering();
+        }
+
+        async preloadSounds() {
+            console.log("Pre-rendering audio buffers (Zero Cost Mode)...");
+
+            this.buffers.tink = await this.createSoundBuffer(0.2, (ctx, master, noiseBuf) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1500, 0);
+                osc.frequency.exponentialRampToValueAtTime(800, 0.1);
+                gain.gain.setValueAtTime(1.5, 0);
+                gain.gain.exponentialRampToValueAtTime(0.001, 0.1);
+                osc.connect(gain);
+                gain.connect(master);
+                osc.start(0);
+                osc.stop(0.1);
+
+                // Add Noise Chiff
+                const noise = ctx.createBufferSource();
+                noise.buffer = noiseBuf;
+                const noiseFilter = ctx.createBiquadFilter();
+                noiseFilter.type = 'highpass';
+                noiseFilter.frequency.value = 2000;
+                const noiseGain = ctx.createGain();
+                noiseGain.gain.setValueAtTime(0.5, 0);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, 0.05);
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(master);
+                noise.start(0);
+                noise.stop(0.05);
+            });
+
+            this.buffers.tonk = await this.createSoundBuffer(0.3, (ctx, master, noiseBuf) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const filter = ctx.createBiquadFilter();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(450, 0);
+                osc.frequency.exponentialRampToValueAtTime(200, 0.2);
+                filter.type = 'bandpass';
+                filter.frequency.value = 600;
+                gain.gain.setValueAtTime(2.0, 0);
+                gain.gain.exponentialRampToValueAtTime(0.001, 0.2);
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(master);
+                osc.start(0);
+                osc.stop(0.2);
+
+                // Add Noise Chiff
+                const noise = ctx.createBufferSource();
+                noise.buffer = noiseBuf;
+                const noiseFilter = ctx.createBiquadFilter();
+                noiseFilter.type = 'bandpass';
+                noiseFilter.frequency.value = 800;
+                const noiseGain = ctx.createGain();
+                noiseGain.gain.setValueAtTime(1.0, 0);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, 0.05);
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(master);
+                noise.start(0);
+                noise.stop(0.05);
+            });
+
+            console.log("Sounds preloaded into memory.");
+        }
+
+        // --- SILENCE LOOP (Android Fix) ---
+        unlock() {
+            if (this.audioUnlocked) return;
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+
+            // 1. One-shot buffer trigger
+            const buffer = this.ctx.createBuffer(1, 1, 22050);
+            const source = this.ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(this.ctx.destination);
+            source.start(0);
+
+            // 2. Continuous silent oscillator (Keeps hardware hot)
+            const idler = this.ctx.createOscillator();
+            const idlerGain = this.ctx.createGain();
+            idlerGain.gain.value = 0.001; 
+            idler.connect(idlerGain);
+            idlerGain.connect(this.ctx.destination);
+            idler.start(0);
+
+            this.audioUnlocked = true;
+            console.log("Audio Unlocked & Hardware Warm.");
+            
+            this.preloadSounds();
+        }
+
+        // --- PLAYBACK ---
+        playFlowerSound() {
+            if (this.isTinkNext) {
+                this.useBufferedAudio ? this.playBuffer(this.buffers.tink) : this.playTinkSynth();
+            } else {
+                this.useBufferedAudio ? this.playBuffer(this.buffers.tonk) : this.playTonkSynth();
+            }
+            this.isTinkNext = !this.isTinkNext;
+        }
+
+        // FAST PATH: Zero Generation Cost
+        playBuffer(buffer) {
+            if (!buffer) return;
+            const source = this.ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(this.masterGain);
+            source.start(0); // Fires on background audio thread
+        }
+
+        // SLOW PATH: Real-time Synthesis (Legacy)
+        playTinkSynth() {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1500, now);
+            osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+            gain.gain.setValueAtTime(1.5, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        }
+
+        playTonkSynth() {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(450, now);
+            osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+            gain.gain.setValueAtTime(2.0, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        }
+
+        setVolume(val) {
+            this.masterGain.gain.value = val;
+        }
+
+        setMode(isBuffered) {
+            this.useBufferedAudio = isBuffered;
+        }
+    }
+
+    // --- INSTANTIATE SOUND ENGINE ---
+    const soundEngine = new SoundEngine();
+
+    // Attach Unlock Listeners
+    ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'].forEach(event => {
+        document.body.addEventListener(event, () => soundEngine.unlock(), { once: true, capture: true });
+    });
+
+    // --- SETTINGS LISTENERS ---
+    volumeSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        volumeValueEl.textContent = `${val}%`;
+        soundEngine.setVolume(val / 100);
+    });
+
+    audioModeSelect.addEventListener('change', (e) => {
+        soundEngine.setMode(e.target.value === 'buffered');
+    });
+
+    // --- MOBILE CONTROLS ---
     const mobileControls = document.getElementById('mobile-controls');
     const mobileLeftBtn = document.getElementById('mobile-left');
     const mobileRightBtn = document.getElementById('mobile-right');
@@ -214,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function goFull() {
-        unlockAudio(); // Try to unlock on fullscreen button press too
+        soundEngine.unlock(); 
         const el = document.documentElement;
         if (el.requestFullscreen) el.requestFullscreen();
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
@@ -302,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startGame() {
-        unlockAudio(); // Ensure audio is unlocked on start click
+        soundEngine.unlock(); 
         resetGame();
         messageScreen.classList.add('hidden');
         p2ScoreEl.classList.add('hidden');
@@ -750,8 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function collectFlower(flower, index, player) {
-        // Play Sound
-        playFlowerSound();
+        soundEngine.playFlowerSound();
 
         flower.el.remove();
         if (flower.hitboxEl) flower.hitboxEl.remove();
@@ -970,7 +1036,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pressKey = (e) => {
                 e.preventDefault();
                 keys[key] = true;
-                unlockAudio(); // Important: unlocking audio on touch events
+                soundEngine.unlock(); // Unlock on control press
             };
             const releaseKey = (e) => {
                 e.preventDefault();

@@ -71,6 +71,7 @@
                 <p><strong>Co-op:</strong> A second player can join anytime.</p>
                 
                 <div class="settings-container">
+                    <!-- Speed Settings -->
                     <div class="settings-row" id="speed-settings">
                         <label for="speed-select">Game Speed:</label>
                         <select id="speed-select">
@@ -82,6 +83,16 @@
                             <option value="2.0">2.0x</option>
                         </select>
                     </div>
+
+                    <!-- Volume Settings -->
+                    <div class="settings-row">
+                        <label for="volume-slider">Volume: <span id="volume-value">50%</span></label>
+                    </div>
+                    <div class="settings-row">
+                        <input type="range" id="volume-slider" min="0" max="100" value="50">
+                    </div>
+
+                    <!-- Checkboxes -->
                     <div class="settings-row">
                         <label><input type="checkbox" id="toggle-fps"> Show FPS Counter</label>
                     </div>
@@ -90,7 +101,10 @@
                     </div>
                 </div>
 
-                <button id="close-help-button">Close</button>
+                <div class="help-footer">
+                    <button id="close-help-button">Close</button>
+                    <div id="game-version">v1.0</div>
+                </div>
             </div>
 
             <!-- Help Button (In-Game) -->

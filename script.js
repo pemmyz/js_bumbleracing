@@ -1,62 +1,66 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- VERSION CONTROL ---
+    const CURRENT_VERSION = '1.1';
+    document.getElementById('game-version').textContent = `v${CURRENT_VERSION}`;
+
     // --- AUDIO SYSTEM SETUP ---
-    // 1. Force 'interactive' latency
-    // 2. Allow browser to choose native sample rate (prevents resampling lag)
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     const audioContext = new AudioContextClass({ 
         latencyHint: 'interactive',
-        sampleRate: 44100 // Common native rate for Android, reduces resampling overhead
+        sampleRate: 44100 
     });
 
-    // --- ANDROID LAG FIX: THE SILENCE KEEPER ---
-    // We play a silent sound continuously to stop Android from powering down the audio hardware.
+    // Master Gain Node (Volume Control)
+    const masterGain = audioContext.createGain();
+    masterGain.gain.value = 0.5; // Default 50%
+
+    const limiter = audioContext.createDynamicsCompressor();
+    limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
+    
+    // Audio Graph: Sources -> MasterGain -> Limiter -> Destination
+    masterGain.connect(limiter);
+    limiter.connect(audioContext.destination);
+
+    // --- ANDROID LATENCY FIX (Silence Loop) ---
     let audioUnlocked = false;
 
     function unlockAudio() {
         if (audioUnlocked) return;
 
-        // Resume the context if suspended (Chrome policy)
         if (audioContext.state === 'suspended') {
             audioContext.resume();
         }
 
-        // Create an empty buffer source (0.1 seconds of silence)
+        // Buffer silence (triggers hardware)
         const buffer = audioContext.createBuffer(1, 1, 22050);
         const source = audioContext.createBufferSource();
         source.buffer = buffer;
         source.connect(audioContext.destination);
         source.start(0);
 
-        // --- THE KEY FIX FOR ANDROID ---
-        // Create an oscillator that plays absolute silence continuously.
-        // This keeps the audio thread active/hot.
+        // Continuous Oscillator (keeps hardware hot)
         const idler = audioContext.createOscillator();
         const idlerGain = audioContext.createGain();
-        idlerGain.gain.value = 0.001; // Extremely low volume (inaudible but active)
+        idlerGain.gain.value = 0.001; // Inaudible
         idler.connect(idlerGain);
         idlerGain.connect(audioContext.destination);
         idler.start(0);
         
-        console.log("Audio unlocked and hardware warmed up.");
+        console.log("Audio Unlocked (Silence Loop Active)");
         audioUnlocked = true;
 
-        // Remove listeners so we don't do this again
-        ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(event => {
+        // Clean up listeners
+        ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'].forEach(event => {
             document.body.removeEventListener(event, unlockAudio);
         });
     }
 
-    // Attach unlock to EVERY interaction type to ensure we catch the first one
-    ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(event => {
-        document.body.addEventListener(event, unlockAudio, { once: true });
+    // Attach unlock to essentially everything to catch the first interaction
+    ['touchstart', 'touchend', 'mousedown', 'keydown', 'click'].forEach(event => {
+        document.body.addEventListener(event, unlockAudio, { once: true, capture: true });
     });
 
-    // --- Audio Nodes Setup ---
-    const limiter = audioContext.createDynamicsCompressor();
-    limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
-    limiter.connect(audioContext.destination);
-
-    // Generate White Noise Buffer (Pre-calculated)
+    // --- White Noise Buffer ---
     const bufferSize = audioContext.sampleRate * 2; 
     const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
     const data = noiseBuffer.getChannelData(0);
@@ -64,28 +68,17 @@ document.addEventListener('DOMContentLoaded', () => {
         data[i] = Math.random() * 2 - 1;
     }
 
-    function finalVolume() {
-        return 0.2; 
-    }
-
-    // --- Sound Effects Logic ---
+    // --- Sound Effects ---
     let isTinkNext = true;
 
     function playFlowerSound() {
-        // Just in case unlock failed earlier
-        if (audioContext.state === 'suspended') audioContext.resume();
-
-        if (isTinkNext) {
-            playTink();
-        } else {
-            playTonk();
-        }
+        if (isTinkNext) playTink();
+        else playTonk();
         isTinkNext = !isTinkNext; 
     }
 
     function playTink() {
         const now = audioContext.currentTime;
-        
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
         
@@ -93,26 +86,25 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.frequency.setValueAtTime(1500, now);
         osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
         
-        // Instant attack
-        gain.gain.setValueAtTime(1.5 * finalVolume(), now);
+        gain.gain.setValueAtTime(1.5, now); // Volume handled by MasterGain now
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
         
-        // Noise
         const noise = audioContext.createBufferSource();
         noise.buffer = noiseBuffer;
         const noiseFilter = audioContext.createBiquadFilter();
         noiseFilter.type = 'highpass';
         noiseFilter.frequency.value = 2000;
         const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(0.5 * finalVolume(), now);
+        noiseGain.gain.setValueAtTime(0.5, now);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
         
+        // Connect to MasterGain instead of Destination directly
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
-        noiseGain.connect(limiter);
+        noiseGain.connect(masterGain);
 
         osc.connect(gain);
-        gain.connect(limiter);
+        gain.connect(masterGain);
         
         osc.start(now);
         osc.stop(now + 0.1);
@@ -122,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function playTonk() {
         const now = audioContext.currentTime;
-        
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
         
@@ -130,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.frequency.setValueAtTime(450, now);
         osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
         
-        gain.gain.setValueAtTime(2.0 * finalVolume(), now);
+        gain.gain.setValueAtTime(2.0, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
         
         const filter = audioContext.createBiquadFilter();
@@ -143,16 +134,16 @@ document.addEventListener('DOMContentLoaded', () => {
         noiseFilter.type = 'bandpass';
         noiseFilter.frequency.value = 800;
         const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(1 * finalVolume(), now);
+        noiseGain.gain.setValueAtTime(1.0, now);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
         
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
-        noiseGain.connect(limiter);
+        noiseGain.connect(masterGain);
         
         osc.connect(filter);
         filter.connect(gain);
-        gain.connect(limiter);
+        gain.connect(masterGain);
         
         osc.start(now);
         osc.stop(now + 0.2);
@@ -182,6 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- Settings Selectors ---
     const speedSelect = document.getElementById('speed-select');
+    const volumeSlider = document.getElementById('volume-slider');
+    const volumeValueEl = document.getElementById('volume-value');
     const fpsCounterEl = document.getElementById('fps-counter');
     const toggleFpsCheckbox = document.getElementById('toggle-fps');
     const lockFpsCheckbox = document.getElementById('lock-fps');
@@ -949,6 +942,16 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`Game speed updated to: ${gameSpeed}x`);
     });
 
+    // Volume Slider Listener
+    volumeSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        volumeValueEl.textContent = `${val}%`;
+        // Convert 0-100 scale to 0.0-1.0 scale
+        if (masterGain) {
+            masterGain.gain.value = val / 100;
+        }
+    });
+
     toggleFpsCheckbox.addEventListener('change', (e) => {
         showFps = e.target.checked;
         fpsCounterEl.classList.toggle('hidden', !showFps);
@@ -970,7 +973,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pressKey = (e) => {
                 e.preventDefault();
                 keys[key] = true;
-                unlockAudio(); // Important: unlocking audio on touch events
+                unlockAudio(); // Unlock on control press
             };
             const releaseKey = (e) => {
                 e.preventDefault();

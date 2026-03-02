@@ -2,10 +2,18 @@ class FlowerProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
         this.activeSounds = [];
+        this.buffers = { tink: null, tonk: null };
+
         this.port.onmessage = (e) => {
-            if (e.data.type === 'play') {
-                // Keep track of the buffer and our current playback position
-                this.activeSounds.push({ buffer: e.data.buffer, position: 0 });
+            if (e.data.type === 'load') {
+                // Load buffers directly into memory ONCE
+                this.buffers[e.data.name] = e.data.buffer;
+            } else if (e.data.type === 'play') {
+                // Instantly play from memory without array buffer transfer lag
+                const buf = this.buffers[e.data.name];
+                if (buf) {
+                    this.activeSounds.push({ buffer: buf, position: 0 });
+                }
             }
         };
     }

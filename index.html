@@ -72,10 +72,9 @@
                 <p><strong>Co-op:</strong> A second player can join anytime.</p>
                 
                 <div class="settings-container">
-                    <!-- Speed Settings -->
-                    <div class="settings-row">
+                    <div class="settings-row" id="speed-settings">
                         <label for="speed-select">Game Speed:</label>
-                        <select id="speed-select" class="retro-select">
+                        <select id="speed-select">
                             <option value="0.75">0.75x</option>
                             <option value="1.0" selected>1.0x</option>
                             <option value="1.25">1.25x</option>
@@ -84,25 +83,6 @@
                             <option value="2.0">2.0x</option>
                         </select>
                     </div>
-
-                    <!-- Audio Mode Settings (New) -->
-                    <div class="settings-row">
-                        <label for="audio-mode">Audio Engine:</label>
-                        <select id="audio-mode" class="retro-select">
-                            <option value="buffered" selected>Zero-Cost (Buffers)</option>
-                            <option value="procedural">Real-time (Synth)</option>
-                        </select>
-                    </div>
-
-                    <!-- Volume Settings -->
-                    <div class="settings-row">
-                        <label for="volume-slider">Volume: <span id="volume-value">50%</span></label>
-                    </div>
-                    <div class="settings-row">
-                        <input type="range" id="volume-slider" min="0" max="100" value="50">
-                    </div>
-
-                    <!-- Checkboxes -->
                     <div class="settings-row">
                         <label><input type="checkbox" id="toggle-fps"> Show FPS Counter</label>
                     </div>
@@ -111,10 +91,7 @@
                     </div>
                 </div>
 
-                <div class="help-footer">
-                    <button id="close-help-button">Close</button>
-                    <div id="game-version">v1.3</div>
-                </div>
+                <button id="close-help-button">Close</button>
             </div>
 
             <!-- Help Button (In-Game) -->

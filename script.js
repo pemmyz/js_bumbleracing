@@ -1,4 +1,3 @@
-// v1.6.2 (Optimized for Zero Latency Worklet)
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- ELEMENT SELECTORS ---
@@ -19,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const restartGameButton = document.getElementById('restart-game-button');
     const devIndicator = document.getElementById('dev-mode-indicator');
     const externalHelpButton = document.getElementById('external-help-button');
-    const p1GpStatusEl = document.getElementById('p1-gp-status');
+    const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
 
     // --- SETTINGS SELECTORS ---
@@ -50,8 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
             this.mode = 'buffered'; 
             this.latencyHint = 'interactive';
             this.noiseGenMode = 'offline';
-            this.processingMode = 'worklet';
-            this.useBufferPool = true;
+            this.processingMode = 'worklet'; // Set default to worklet
+            this.useBufferPool = false;
             
             this.ctx = null;
             this.masterGain = null;
@@ -198,15 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (this.useBufferPool) this.initPools();
-
-            // --- ZERO-LATENCY OPTIMIZATION ---
-            // Send buffers to Worklet memory once to avoid heavy IPC transfers per click
-            if (this.processingMode === 'worklet' && this.workletNode) {
-                this.workletNode.port.postMessage({ type: 'load', name: 'tink', buffer: this.buffers.tink.getChannelData(0) });
-                this.workletNode.port.postMessage({ type: 'load', name: 'tonk', buffer: this.buffers.tonk.getChannelData(0) });
-            }
-            // ---------------------------------
-
             console.log("✅ Audio Buffers Ready.");
         }
 
@@ -244,10 +234,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!buffer) return;
             
             if (this.processingMode === 'worklet' && this.workletNode) {
-                // Optimized trigger: just send the flag, not the array
-                const soundName = buffer === this.buffers.tink ? 'tink' : 'tonk';
-                this.workletNode.port.postMessage({ type: 'play', name: soundName });
+                // Pipe to the Worklet thread
+                this.workletNode.port.postMessage({
+                    type: 'play',
+                    buffer: buffer.getChannelData(0)
+                });
             } else {
+                // Fallback / Standard implementation
                 const source = this.ctx.createBufferSource();
                 source.buffer = buffer;
                 source.connect(this.masterGain);
@@ -342,8 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const idler = this.ctx.createOscillator();
             const idlerGain = this.ctx.createGain();
-            idlerGain.gain.value = 0.001;
-
+            idlerGain.gain.value = 0.001; 
             idler.connect(idlerGain).connect(this.ctx.destination);
             idler.start(0);
 
@@ -434,13 +426,13 @@ document.addEventListener('DOMContentLoaded', () => {
             screen.style.transform = `scale(${scale})`;
             document.body.classList.add('mobile-mode');
         } else {
-            screen.style.transform = 'none';
+            screen.style.transform = 'none'; 
             document.body.classList.remove('mobile-mode');
         }
     }
 
     function goFull() {
-        soundEngine.unlock();
+        soundEngine.unlock(); 
         const el = document.documentElement;
         if (el.requestFullscreen) el.requestFullscreen();
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
@@ -463,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetFrameTime = 1000 / 60; 
     
     let showFps = false;
-    let lockFps = false; // Defalt to unbound for low latency
+    let lockFps = true; 
     let framesThisSecond = 0;
     let lastFpsUpdateTime = 0;
 
@@ -473,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     let playerGamepadAssignments = { p1: null, p2: null };
-    const gamepadAssignmentCooldown = {};
+    const gamepadAssignmentCooldown = {}; 
     const gamepads = {};
 
     // --- Cloud Class ---
@@ -527,13 +519,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startGame() {
-        soundEngine.unlock();
-
+        soundEngine.unlock(); 
         resetGame();
         messageScreen.classList.add('hidden');
         p2ScoreEl.classList.add('hidden');
-        p2GpStatusEl.classList.add('hidden');
-
+        p2GpStatusEl.classList.add('hidden'); 
         startLevel();
     }
     
@@ -552,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const worldWidth = world.offsetWidth;
         const startY = worldHeight - 200;
         
-        addPlayer(0, startY, oldScores[0] || 0); 
+        addPlayer(0, startY, oldScores[0] || 0);
 
         if (state.isTwoPlayer) {
             addPlayer(1, startY, oldScores[1] || 0);
@@ -564,8 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateCamera();
         updateHUD();
-        updateGamepadStatusHUD();
-
+        updateGamepadStatusHUD(); 
         showLevelMessage(`Level ${state.level}`, 1500, () => {
             state.levelInProgress = true;
             
@@ -773,8 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleCloudGeneration();
                 updateAndDrawClouds();
                 handleKeyboardInput();
-                handleGamepadInput();
-
+                handleGamepadInput(); 
                 updatePlayers();
                 handleCollisions();
                 
@@ -824,14 +812,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const DPAD_RIGHT_INDEX = 15;
 
         const stickX = pad.axes[0];
-        const stickY = pad.axes[1];
-
+        const stickY = pad.axes[1]; 
         const dpadLeft = pad.buttons[DPAD_LEFT_INDEX].pressed;
         const dpadRight = pad.buttons[DPAD_RIGHT_INDEX].pressed;
         
         const thrust = pad.buttons[THRUST_BUTTON_INDEX].pressed || 
                        pad.buttons[ALT_THRUST_BUTTON_INDEX].value > 0.1 ||
-                       stickY < -DEADZONE; 
+                       stickY < -DEADZONE;
 
         if (stickX < -DEADZONE || dpadLeft) {
             player.vx = -gameConstants.PLAYER_SPEED;
@@ -992,8 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.flowersToCollect <= 0) { nextLevel(); }
     }
     function nextLevel() {
-        state.levelInProgress = false;
-
+        state.levelInProgress = false; 
         state.totalScore += Math.max(0, state.timeLeft * 10);
         if (state.totalScore > 0) {
             const timeBonus = Math.max(0, state.timeLeft * 10);
@@ -1012,8 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleDeath() {
         if (state.devMode) return;
         if (!state.levelInProgress) return;
-        state.levelInProgress = false;
-
+        state.levelInProgress = false; 
         state.lives--;
         updateHUD();
         if (state.lives <= 0) {
@@ -1023,8 +1008,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function endGame() {
-        state.gameOver = true;
-
+        state.gameOver = true; 
         cancelAnimationFrame(state.gameLoopId);
         messageScreen.querySelector('h1').textContent = 'Game Over';
         const p = messageScreen.querySelectorAll('.instructions');
@@ -1038,8 +1022,7 @@ document.addEventListener('DOMContentLoaded', () => {
             p[1].textContent += ` | P2: ${finalP2Score}`;
         }
         p[2].textContent = `Reached Level: ${state.level}`;
-        startButton.textContent = 'Play Again';
-
+        startButton.textContent = 'Play Again'; 
         messageScreen.classList.remove('hidden');
     }
     function updateTimer() {
@@ -1065,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateGamepadStatusHUD() {
         p1GpStatusEl.textContent = playerGamepadAssignments.p1 !== null ? `P1: GP${playerGamepadAssignments.p1}` : 'P1: GP?';
-        
+    
         if (state.isTwoPlayer) {
             p2GpStatusEl.classList.remove('hidden');
             p2GpStatusEl.textContent = playerGamepadAssignments.p2 !== null ? `P2: GP${playerGamepadAssignments.p2}` : 'P2: GP?';
@@ -1128,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleDevMode();
         }
 
-        if (e.key in keys) { e.preventDefault(); keys[e.key] = true; } 
+        if (e.key in keys) { e.preventDefault(); keys[e.key] = true; }
 
         if (e.key === 'ArrowUp' && !state.isTwoPlayer && state.gameLoopId) {
             e.preventDefault();
@@ -1178,7 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pressKey = (e) => {
                 e.preventDefault();
                 keys[key] = true;
-                soundEngine.unlock(); 
+                soundEngine.unlock(); // Unlock on control press
             };
             const releaseKey = (e) => {
                 e.preventDefault();

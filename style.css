@@ -1,3 +1,4 @@
+
 :root {
     --retro-font: 'Press Start 2P', cursive;
 }
@@ -40,8 +41,8 @@ body.mobile-mode {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
-                 linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
     background-size: 100% 4px, 6px 100%;
     pointer-events: none;
     z-index: 900;
@@ -81,12 +82,12 @@ body.mobile-mode {
 #p1-gp-status { color: #FFD700; font-size: 12px; }
 #p2-gp-status { color: mediumorchid; font-size: 12px; }
 
-#fps-counter {
+#fps-counter { 
     position: absolute;
     right: 10px;
     top: 80px;
-    font-size: 14px;
-    color: #FFF;
+    font-size: 14px; 
+    color: #FFF; 
     text-align: right;
 }
 
@@ -237,7 +238,7 @@ body.mobile-mode #mobile-btn { display: none; }
 #mobile-controls {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none;
+    pointer-events: none; 
     z-index: 3000;
     display: none;
     justify-content: space-between;
@@ -266,10 +267,11 @@ body.mobile-mode #mobile-controls {
     -webkit-tap-highlight-color: transparent;
 }
 
-.mobile-control-btn:active {
-    background: rgba(255,255,255,0.4);
+.mobile-control-btn:active { 
+    background: rgba(255,255,255,0.4); 
     transform: scale(0.95);
 }
 
 #mobile-dpad { display: flex; gap: 5px; margin-left: 20px; margin-bottom: 20px; }
 #mobile-action { margin-right: 40px; margin-bottom: 40px; }
+

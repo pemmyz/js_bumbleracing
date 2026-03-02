@@ -1,11 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- AUDIO SYSTEM SETUP ---
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // FIX: Added { latencyHint: 'interactive' } to remove the delay
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContextClass({ latencyHint: 'interactive' });
+    
     const limiter = audioContext.createDynamicsCompressor();
     limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
     limiter.connect(audioContext.destination);
 
-    // Generate White Noise Buffer
+    // Generate White Noise Buffer (Pre-calculated for speed)
     const bufferSize = audioContext.sampleRate * 2; // 2 seconds buffer
     const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
     const data = noiseBuffer.getChannelData(0);
@@ -21,6 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let isTinkNext = true;
 
     function playFlowerSound() {
+        // Ensure context is running (sometimes it suspends in background tabs)
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
         if (isTinkNext) {
             playTink();
         } else {
@@ -31,14 +39,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function playTink() {
         const now = audioContext.currentTime;
+        
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
+        
         osc.type = 'sine';
         osc.frequency.setValueAtTime(1500, now);
         osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+        
+        // Attack is instant (0), Decay is fast
         gain.gain.setValueAtTime(1.5 * finalVolume(), now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
         
+        // Noise (Chiff)
         const noise = audioContext.createBufferSource();
         noise.buffer = noiseBuffer;
         const noiseFilter = audioContext.createBiquadFilter();
@@ -47,12 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const noiseGain = audioContext.createGain();
         noiseGain.gain.setValueAtTime(0.5 * finalVolume(), now);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        
+        // Connect Graph
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(limiter);
 
         osc.connect(gain);
         gain.connect(limiter);
+        
+        // Start Immediately
         osc.start(now);
         osc.stop(now + 0.1);
         noise.start(now);
@@ -61,11 +78,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function playTonk() {
         const now = audioContext.currentTime;
+        
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
+        
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(450, now);
         osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+        
         gain.gain.setValueAtTime(2.0 * finalVolume(), now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
         
@@ -73,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
         filter.type = 'bandpass';
         filter.frequency.value = 600;
         
+        // Noise (Chiff)
         const noise = audioContext.createBufferSource();
         noise.buffer = noiseBuffer;
         const noiseFilter = audioContext.createBiquadFilter();
@@ -81,6 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const noiseGain = audioContext.createGain();
         noiseGain.gain.setValueAtTime(1 * finalVolume(), now);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        
+        // Connect Graph
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(limiter);
@@ -88,6 +111,8 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.connect(filter);
         filter.connect(gain);
         gain.connect(limiter);
+        
+        // Start Immediately
         osc.start(now);
         osc.stop(now + 0.2);
         noise.start(now);
@@ -235,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startGame() {
-        // Resume Audio Context on user interaction
+        // Resume Audio Context on user interaction to ensure it's "warmed up"
         if (audioContext.state === 'suspended') {
             audioContext.resume();
         }

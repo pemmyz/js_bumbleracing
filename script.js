@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const externalHelpButton = document.getElementById('external-help-button');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
+    const speedSelect = document.getElementById('speed-select');
     
     // --- Mobile Control Selectors ---
     const mobileControls = document.getElementById('mobile-controls');
@@ -60,7 +61,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
     let state = {};
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
+    
+    // --- Game Loop timing & Speed variables ---
     let lastFrameTime = 0;
+    let accumulator = 0;
+    let gameSpeed = 1.0;
     const targetFrameTime = 1000 / 60; // 1000ms / 60fps
 
     const playerControls = [
@@ -111,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Initialization ---
     function resetGame() {
-        state = { level: 1, totalScore: 0, lives: 3, gameLoopId: null, timerId: null, gameOver: false, isTwoPlayer: false, devMode: false };
+        state = { level: 1, totalScore: 0, lives: 3, gameLoopId: null, gameOver: false, isTwoPlayer: false, devMode: false };
         playerGamepadAssignments = { p1: null, p2: null }; 
     }
 
@@ -120,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.frame = 0; state.flowersToCollect = 0; state.timeLeft = gameConstants.LEVEL_TIME;
         state.levelInProgress = false; state.cameraY = 0;
         state.players = [];
+        state.timerAccumulator = 0;
     }
 
     function startGame() {
@@ -160,8 +166,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateGamepadStatusHUD(); 
         showLevelMessage(`Level ${state.level}`, 1500, () => {
             state.levelInProgress = true;
-            if (state.timerId) clearInterval(state.timerId);
-            state.timerId = setInterval(updateTimer, 1000);
+            
+            // Set fresh timeline baseline right as game officially begins
+            lastFrameTime = performance.now();
+            accumulator = 0;
+            
             if(state.gameLoopId) cancelAnimationFrame(state.gameLoopId);
             gameLoop();
         });
@@ -319,29 +328,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Game Loop ---
+    // --- Game Loop (Fixed Timestep) ---
     function gameLoop(timestamp) {
-        // --- FRAME RATE CAP ---
-        if (timestamp) {
-            const elapsedTime = timestamp - lastFrameTime;
-            if (elapsedTime < targetFrameTime) {
-                state.gameLoopId = requestAnimationFrame(gameLoop);
-                return; // Skip this frame if it's too soon
-            }
-            lastFrameTime = timestamp;
-        }
+        if (!timestamp) timestamp = performance.now();
+        if (lastFrameTime === 0) lastFrameTime = timestamp;
+        
+        let dt = timestamp - lastFrameTime;
+        lastFrameTime = timestamp;
+
+        // Cap dt to prevent massive logic jumps/freezes when tab is inactive
+        if (dt > 250) dt = 250; 
+        
+        // Multiplier immediately affects how much frame 'time' we are getting
+        accumulator += dt * gameSpeed;
 
         if (state.gameOver) return;
-        if(state.levelInProgress){
-            handleCloudGeneration();
-            updateAndDrawClouds();
-            handleKeyboardInput();
-            handleGamepadInput(); 
-            updatePlayers();
-            handleCollisions();
+
+        let logicUpdated = false;
+        
+        // Fixed-step loop guarantees deterministic physics
+        while (accumulator >= targetFrameTime) {
+            if(state.levelInProgress){
+                handleCloudGeneration();
+                updateAndDrawClouds();
+                handleKeyboardInput();
+                handleGamepadInput(); 
+                updatePlayers();
+                handleCollisions();
+                
+                // Clock is synced directly to game simulation steps
+                if (!state.devMode) {
+                    state.timerAccumulator += targetFrameTime;
+                    if (state.timerAccumulator >= 1000) {
+                        updateTimer();
+                        state.timerAccumulator -= 1000;
+                    }
+                }
+            }
+            accumulator -= targetFrameTime;
+            logicUpdated = true;
         }
-        drawPlayers();
-        updateCamera();
+
+        // Only redraw if logic was executed or we're waiting for level to start
+        if (logicUpdated || !state.levelInProgress) {
+            drawPlayers();
+            updateCamera();
+        }
+
         state.gameLoopId = requestAnimationFrame(gameLoop);
     }
 
@@ -538,7 +571,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.flowersToCollect <= 0) { nextLevel(); }
     }
     function nextLevel() {
-        clearInterval(state.timerId); 
         state.levelInProgress = false; 
         state.totalScore += Math.max(0, state.timeLeft * 10);
         if (state.totalScore > 0) {
@@ -558,7 +590,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleDeath() {
         if (state.devMode) return;
         if (!state.levelInProgress) return;
-        clearInterval(state.timerId);
         state.levelInProgress = false; 
         state.lives--;
         updateHUD();
@@ -570,7 +601,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function endGame() {
         state.gameOver = true; 
-        clearInterval(state.timerId); 
         cancelAnimationFrame(state.gameLoopId);
         messageScreen.querySelector('h1').textContent = 'Game Over';
         const p = messageScreen.querySelectorAll('.instructions');
@@ -589,7 +619,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function updateTimer() {
         if (state.devMode) return;
-        if (state.levelInProgress) { state.timeLeft--; updateHUD(); if (state.timeLeft <= 0) handleDeath(); }
+        if (state.levelInProgress) { 
+            state.timeLeft--; 
+            updateHUD(); 
+            if (state.timeLeft <= 0) handleDeath(); 
+        }
     }
 
     // --- Drawing & UI ---
@@ -627,7 +661,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function showLevelMessage(text, duration, callback) {
         levelMessageScreen.textContent = text; levelMessageScreen.classList.remove('hidden');
-        setTimeout(() => { levelMessageScreen.classList.add('hidden'); if (callback) callback(); }, duration);
+        // Factor in game speed so the delays sync up visually with the flow of the game
+        setTimeout(() => { levelMessageScreen.classList.add('hidden'); if (callback) callback(); }, duration / gameSpeed);
     }
     
     // --- Utility Functions ---
@@ -722,6 +757,12 @@ document.addEventListener('DOMContentLoaded', () => {
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
     externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     
+    // Connect Speed Switch UI
+    speedSelect.addEventListener('change', (e) => {
+        gameSpeed = parseFloat(e.target.value);
+        console.log(`Game speed updated to: ${gameSpeed}x`);
+    });
+
     // --- MOBILE CONTROL LISTENERS ---
     function setupMobileControls() {
         if (!mobileControls) return;

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bee Flower Bee (Co-op)</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Mobile/Fullscreen Toggle -->
+    <button id="mobile-btn">📱 Fullscreen / Mobile Controls</button>
+
+    <!-- The Game Container -->
+    <div id="game-container">
+        <!-- The Screen (Fixed 960x720 Resolution) -->
+        <div id="screen">
+            
+            <!-- HUD -->
+            <div id="hud">
+                <div id="player-info">
+                    <div id="player-scores">
+                        <div class="hud-item" id="p1-score">P1: 0</div>
+                        <div class="hud-item hidden" id="p2-score">P2: 0</div>
+                    </div>
+                    <div id="gamepad-status" class="hud-item">
+                        <span id="p1-gp-status">P1: GP?</span>
+                        <span id="p2-gp-status" class="hidden">P2: GP?</span>
+                    </div>
+                </div>
+                
+                <div class="hud-item" id="level">LEVEL: 1</div>
+                <div class="hud-item" id="flowers-left">🌼: 5</div>
+                <div class="hud-item" id="timer">⏱️ 3:00</div>
+                <div class="hud-item" id="lives">LIVES: 🐝🐝🐝</div>
+                
+                <!-- FPS Counter -->
+                <div class="hud-item hidden" id="fps-counter">FPS: 60</div>
+                
+                <div id="dev-mode-indicator" class="hidden">DEV MODE</div>
+            </div>
+            
+            <!-- Game World -->
+            <div id="game-area">
+                <div id="world">
+                    <!-- Dynamic objects (Player, Clouds, Platforms) -->
+                </div>
+            </div>
+
+            <!-- Menus & Overlays -->
+            <div id="message-screen">
+                <h1>Bee Flower Bee</h1>
+                <p class="instructions">P1: WASD or Arrows to Move/Thrust</p>
+                <p class="instructions">P2: Press Start/Join to play co-op!</p>
+                <p class="instructions">Collect 🌼 | Avoid 🌵</p>
+                <div class="button-container">
+                    <button id="start-button">Start Game</button>
+                    <button id="help-button">Help (?)</button>
+                </div>
+            </div>
+
+            <div id="level-message-screen" class="hidden"></div>
+
+            <!-- Main Help Screen -->
+            <div id="help-screen" class="hidden">
+                <h2>How to Play</h2>
+                <p><strong>Goal:</strong> Collect flowers before time runs out.</p>
+                <p><strong>Controls:</strong> Keyboard (WASD/Arrows) or Gamepad.</p>
+                <p><strong>Co-op:</strong> A second player can join anytime.</p>
+                
+                <div class="settings-container">
+                    <div class="settings-row" id="speed-settings">
+                        <label for="speed-select">Game Speed:</label>
+                        <select id="speed-select">
+                            <option value="0.75">0.75x</option>
+                            <option value="1.0" selected>1.0x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="1.75">1.75x</option>
+                            <option value="2.0">2.0x</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="toggle-fps"> Show FPS Counter</label>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="lock-fps" checked> Lock FPS to 60</label>
+                    </div>
+                </div>
+
+                <div class="button-container">
+                    <button id="open-audio-menu-button">Audio Settings</button>
+                    <button id="close-help-button">Close</button>
+                </div>
+            </div>
+
+            <!-- Advanced Audio Settings Screen -->
+            <div id="audio-settings-screen" class="hidden">
+                <h2>Audio Engine</h2>
+                <div class="settings-container" style="max-height: 400px; overflow-y: auto;">
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="use-new-audio" checked> Use Advanced Audio Engine</label>
+                    </div>
+                    
+                    <p style="font-size: 10px; color: #888; margin-top: 10px;">Advanced Engine Settings:</p>
+                    
+                    <div class="settings-row">
+                        <label>Generation Mode:
+                            <select id="audio-mode">
+                                <option value="buffered" selected>Buffered (Pre-rendered)</option>
+                                <option value="realtime">Realtime (Procedural)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label>Processing:
+                            <select id="audio-processing">
+                                <option value="worklet" selected>AudioWorklet (Zero Latency)</option>
+                                <option value="standard">Standard (Main Thread)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="audio-pool" checked> Use Buffer Pool (Anti-Garbage Collect)</label>
+                    </div>
+                    <div class="settings-row">
+                        <label>Latency Hint:
+                            <select id="audio-latency">
+                                <option value="interactive" selected>Interactive (Lowest Lag)</option>
+                                <option value="balanced">Balanced</option>
+                                <option value="playback">Playback (Smooth/High Lag)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label>Noise Gen Mode:
+                            <select id="audio-noise">
+                                <option value="offline" selected>OfflineRender (Fastest)</option>
+                                <option value="realtime">Realtime</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+                <button id="close-audio-menu-button">Back</button>
+            </div>
+
+            <!-- Help Button (In-Game) -->
+            <div id="controls-bar">
+                <button id="external-help-button">Help (H)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Touch Controls -->
+    <div id="mobile-controls">
+        <div id="mobile-dpad">
+            <button id="mobile-left" class="mobile-control-btn">◀</button>
+            <button id="mobile-right" class="mobile-control-btn">▶</button>
+        </div>
+        <div id="mobile-action">
+            <button id="mobile-up" class="mobile-control-btn">▲</button>
+        </div>
+    </div>
+
+    <!-- Load Audio Engine FIRST, then Game Logic -->
+    <script src="audio.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

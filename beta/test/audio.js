@@ -10,17 +10,18 @@ class FlowerProcessor extends AudioWorkletProcessor {
         super();
         this.activeSounds = [];
         this.buffers = { tink: null, tonk: null };
+        this.fastLoop = false; // Tweak flag
 
         this.port.onmessage = (e) => {
             if (e.data.type === 'load') {
-                // Load buffers directly into Worklet memory ONCE
                 this.buffers[e.data.name] = e.data.buffer;
             } else if (e.data.type === 'play') {
-                // Instantly play from memory without array buffer transfer lag
                 const buf = this.buffers[e.data.name];
                 if (buf) {
                     this.activeSounds.push({ buffer: buf, position: 0 });
                 }
+            } else if (e.data.type === 'tweak') {
+                this.fastLoop = e.data.fastLoop;
             }
         };
     }
@@ -34,23 +35,37 @@ class FlowerProcessor extends AudioWorkletProcessor {
             channel[i] = 0;
         }
 
-        // 2. Mix all active sounds frame-by-frame
-        for (let s = this.activeSounds.length - 1; s >= 0; s--) {
-            const sound = this.activeSounds[s];
-            
-            for (let i = 0; i < channel.length; i++) {
-                if (sound.position < sound.buffer.length) {
-                    channel[i] += sound.buffer[sound.position];
-                    sound.position++;
+        // 2. Mix active sounds
+        if (this.fastLoop) {
+            // 🔥 TWEAK: Optimized mixing loop
+            const active = this.activeSounds;
+            for (let s = active.length - 1; s >= 0; s--) {
+                const sound = active[s];
+                const buf = sound.buffer;
+                let pos = sound.position;
+
+                for (let i = 0; i < channel.length && pos < buf.length; i++, pos++) {
+                    channel[i] += buf[pos];
+                }
+
+                sound.position = pos;
+                if (pos >= buf.length) active.splice(s, 1);
+            }
+        } else {
+            // Original safe loop
+            for (let s = this.activeSounds.length - 1; s >= 0; s--) {
+                const sound = this.activeSounds[s];
+                for (let i = 0; i < channel.length; i++) {
+                    if (sound.position < sound.buffer.length) {
+                        channel[i] += sound.buffer[sound.position];
+                        sound.position++;
+                    }
+                }
+                if (sound.position >= sound.buffer.length) {
+                    this.activeSounds.splice(s, 1);
                 }
             }
-            
-            // 3. Remove sound from queue if finished playing
-            if (sound.position >= sound.buffer.length) {
-                this.activeSounds.splice(s, 1);
-            }
         }
-
         return true;
     }
 }
@@ -90,6 +105,9 @@ window.SoundEngine = class SoundEngine {
         this.tonkPool = [];
         this.poolIndex = 0;
 
+        // 🔥 Hardcore Tweaks
+        this.tweaks = { zeroCopy: false, fastLoop: false, androidHack: false, idlerMute: false };
+
         this.initContext();
     }
 
@@ -98,8 +116,15 @@ window.SoundEngine = class SoundEngine {
 
         // Cross-browser AudioContext support
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        
+        // 🔥 TWEAK: Android ultra-low latency hack
+        let latency = this.latencyHint;
+        if (this.tweaks.androidHack && this.latencyHint === 'interactive') {
+            latency = 0.00001; 
+        }
+
         this.ctx = new AudioContextClass({ 
-            latencyHint: this.latencyHint,
+            latencyHint: latency,
             sampleRate: 44100
         });
 
@@ -119,6 +144,10 @@ window.SoundEngine = class SoundEngine {
             try {
                 await this.ctx.audioWorklet.addModule(WORKLET_URL);
                 this.workletNode = new AudioWorkletNode(this.ctx, 'flower-processor');
+                
+                // SEND TWEAK FLAG TO WORKLET
+                this.workletNode.port.postMessage({ type: 'tweak', fastLoop: this.tweaks.fastLoop });
+                
                 this.workletNode.connect(this.masterGain);
                 console.log("✅ AudioWorklet successfully loaded and connected.");
             } catch(e) {
@@ -221,12 +250,31 @@ window.SoundEngine = class SoundEngine {
             }
         });
 
-        if (this.useBufferPool) this.initPools();
+        // 🔥 Disable Pool if Worklet is active
+        if (this.useBufferPool && this.processingMode !== 'worklet') this.initPools();
 
         // Send generated audio arrays directly into the Worklet's memory
         if (this.processingMode === 'worklet' && this.workletNode) {
-            this.workletNode.port.postMessage({ type: 'load', name: 'tink', buffer: this.buffers.tink.getChannelData(0) });
-            this.workletNode.port.postMessage({ type: 'load', name: 'tonk', buffer: this.buffers.tonk.getChannelData(0) });
+            if (this.tweaks.zeroCopy) {
+                // 🔥 TWEAK: Zero-copy transferable transfer
+                const tinkData = this.buffers.tink.getChannelData(0);
+                const tinkCopy = new Float32Array(tinkData);
+                this.workletNode.port.postMessage(
+                    { type: 'load', name: 'tink', buffer: tinkCopy },
+                    [tinkCopy.buffer] // Transferred directly to worklet
+                );
+
+                const tonkData = this.buffers.tonk.getChannelData(0);
+                const tonkCopy = new Float32Array(tonkData);
+                this.workletNode.port.postMessage(
+                    { type: 'load', name: 'tonk', buffer: tonkCopy },
+                    [tonkCopy.buffer] // Transferred directly to worklet
+                );
+            } else {
+                // Standard clone copy
+                this.workletNode.port.postMessage({ type: 'load', name: 'tink', buffer: this.buffers.tink.getChannelData(0) });
+                this.workletNode.port.postMessage({ type: 'load', name: 'tonk', buffer: this.buffers.tonk.getChannelData(0) });
+            }
         }
 
         console.log("✅ Audio Buffers Ready.");
@@ -338,7 +386,7 @@ window.SoundEngine = class SoundEngine {
         }
         if (options.useBufferPool !== undefined) {
             this.useBufferPool = options.useBufferPool;
-            if (this.useBufferPool) this.initPools();
+            if (this.useBufferPool && this.processingMode !== 'worklet') this.initPools();
         }
         if (options.noiseGenMode && options.noiseGenMode !== this.noiseGenMode) {
             this.noiseGenMode = options.noiseGenMode;
@@ -367,7 +415,9 @@ window.SoundEngine = class SoundEngine {
         // Persistent silent idler prevents garbage collection dropouts
         const idler = this.ctx.createOscillator();
         const idlerGain = this.ctx.createGain();
-        idlerGain.gain.value = 0.001;
+        
+        // 🔥 TWEAK: True Zero Gain idler
+        idlerGain.gain.value = this.tweaks.idlerMute ? 0 : 0.001;
 
         idler.connect(idlerGain).connect(this.ctx.destination);
         idler.start(0);

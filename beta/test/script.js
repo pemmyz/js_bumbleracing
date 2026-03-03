@@ -131,6 +131,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioLatSelect = document.getElementById('audio-latency');
     const audioNoiseSelect = document.getElementById('audio-noise');
     
+    // Tweak Selectors
+    const tweakZeroCopy = document.getElementById('tweak-zero-copy');
+    const tweakFastLoop = document.getElementById('tweak-fast-loop');
+    const tweakAndroidHack = document.getElementById('tweak-android-hack');
+    const tweakIdlerMute = document.getElementById('tweak-idler-mute');
+    const tweakDomPool = document.getElementById('tweak-dom-pool');
+
     // --- Mobile Control Selectors ---
     const mobileControls = document.getElementById('mobile-controls');
     const mobileLeftBtn = document.getElementById('mobile-left');
@@ -172,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
-    let state = { useNewAudio: true };
+    let state = { useNewAudio: true, fastDomClear: false };
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
     
     let lastFrameTime = 0;
@@ -832,7 +839,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
     }
     
-    function clearDynamicElements() { world.innerHTML = ''; }
+    function clearDynamicElements() { 
+        if (state.fastDomClear) {
+            // 🔥 TWEAK: Prevents massive reflow & GC spike
+            while (world.firstChild) {
+                world.removeChild(world.firstChild);
+            }
+        } else {
+            world.innerHTML = ''; // Original method
+        }
+    }
 
     function toggleDevMode() {
         state.devMode = !state.devMode;
@@ -924,6 +940,24 @@ document.addEventListener('DOMContentLoaded', () => {
     audioPoolToggle.addEventListener('change', (e) => advancedAudio.setAdvancedOptions({ useBufferPool: e.target.checked }));
     audioLatSelect.addEventListener('change', (e) => advancedAudio.setLatencyHint(e.target.value));
     audioNoiseSelect.addEventListener('change', (e) => advancedAudio.setAdvancedOptions({ noiseGenMode: e.target.value }));
+
+    // Tweak Listeners
+    tweakZeroCopy.addEventListener('change', (e) => advancedAudio.tweaks.zeroCopy = e.target.checked);
+    tweakFastLoop.addEventListener('change', (e) => {
+        advancedAudio.tweaks.fastLoop = e.target.checked;
+        if (advancedAudio.workletNode) {
+            advancedAudio.workletNode.port.postMessage({ type: 'tweak', fastLoop: e.target.checked });
+        }
+    });
+    tweakAndroidHack.addEventListener('change', (e) => {
+        advancedAudio.tweaks.androidHack = e.target.checked;
+        // Requires "Apply & Restart" to reboot engine with 0.00001 latency hint
+    });
+    tweakIdlerMute.addEventListener('change', (e) => {
+        advancedAudio.tweaks.idlerMute = e.target.checked;
+        // Requires "Apply & Restart" to re-instantiate the idler node
+    });
+    tweakDomPool.addEventListener('change', (e) => state.fastDomClear = e.target.checked);
 
     mobileToggleBtn.addEventListener('click', goFull);
 

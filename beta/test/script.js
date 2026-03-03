@@ -111,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const externalHelpButton = document.getElementById('external-help-button');
     const openAudioMenuBtn = document.getElementById('open-audio-menu-button');
     const closeAudioMenuBtn = document.getElementById('close-audio-menu-button');
+    const applyRestartAudioBtn = document.getElementById('apply-restart-audio-button');
     
     const devIndicator = document.getElementById('dev-mode-indicator');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
@@ -910,6 +911,11 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAudioMenuBtn.addEventListener('click', () => {
         audioSettingsScreen.classList.add('hidden');
         helpScreen.classList.remove('hidden');
+    });
+
+    applyRestartAudioBtn.addEventListener('click', () => {
+        audioSettingsScreen.classList.add('hidden');
+        startGame(); // Starts a new game (settings are already applied dynamically via 'change' events)
     });
 
     useNewAudioToggle.addEventListener('change', (e) => state.useNewAudio = e.target.checked);

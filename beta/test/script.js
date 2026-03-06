@@ -112,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const openAudioMenuBtn = document.getElementById('open-audio-menu-button');
     const closeAudioMenuBtn = document.getElementById('close-audio-menu-button');
     const applyRestartAudioBtn = document.getElementById('apply-restart-audio-button');
+    const resetAudioDefaultsBtn = document.getElementById('reset-audio-defaults-button');
     
     const devIndicator = document.getElementById('dev-mode-indicator');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
@@ -179,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
-    let state = { useNewAudio: true, fastDomClear: false };
+    let state = { useNewAudio: true, fastDomClear: true }; // Tweak enabled by default
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
     
     let lastFrameTime = 0;
@@ -932,6 +933,26 @@ document.addEventListener('DOMContentLoaded', () => {
     applyRestartAudioBtn.addEventListener('click', () => {
         audioSettingsScreen.classList.add('hidden');
         startGame(); // Starts a new game (settings are already applied dynamically via 'change' events)
+    });
+
+    resetAudioDefaultsBtn.addEventListener('click', () => {
+        // Reset UI to Defaults
+        useNewAudioToggle.checked = true;
+        audioModeSelect.value = 'buffered';
+        audioProcSelect.value = 'worklet';
+        audioPoolToggle.checked = true;
+        audioLatSelect.value = 'interactive';
+        audioNoiseSelect.value = 'offline';
+        tweakZeroCopy.checked = true;
+        tweakFastLoop.checked = true;
+        tweakAndroidHack.checked = true;
+        tweakIdlerMute.checked = true;
+        tweakDomPool.checked = true;
+
+        // Dispatch change events to trigger attached logic (updates internal state)
+        [useNewAudioToggle, audioModeSelect, audioProcSelect, audioPoolToggle, 
+         audioLatSelect, audioNoiseSelect, tweakZeroCopy, tweakFastLoop, 
+         tweakAndroidHack, tweakIdlerMute, tweakDomPool].forEach(el => el.dispatchEvent(new Event('change')));
     });
 
     useNewAudioToggle.addEventListener('change', (e) => state.useNewAudio = e.target.checked);

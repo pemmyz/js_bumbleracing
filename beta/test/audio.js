@@ -105,8 +105,8 @@ window.SoundEngine = class SoundEngine {
         this.tonkPool = [];
         this.poolIndex = 0;
 
-        // 🔥 Hardcore Tweaks
-        this.tweaks = { zeroCopy: false, fastLoop: false, androidHack: false, idlerMute: false };
+        // 🔥 Hardcore Tweaks (Enabled by default)
+        this.tweaks = { zeroCopy: true, fastLoop: true, androidHack: true, idlerMute: true };
 
         this.initContext();
     }

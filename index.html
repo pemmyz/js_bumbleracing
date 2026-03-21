@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -65,6 +64,7 @@
 
             <div id="level-message-screen" class="hidden"></div>
 
+            <!-- Main Help Screen -->
             <div id="help-screen" class="hidden">
                 <h2>How to Play</h2>
                 <p><strong>Goal:</strong> Collect flowers before time runs out.</p>
@@ -91,7 +91,85 @@
                     </div>
                 </div>
 
-                <button id="close-help-button">Close</button>
+                <div class="button-container">
+                    <button id="open-audio-menu-button">Audio Settings</button>
+                    <button id="close-help-button">Close</button>
+                </div>
+            </div>
+
+            <!-- Advanced Audio Settings Screen -->
+            <div id="audio-settings-screen" class="hidden">
+                <h2>Audio Engine</h2>
+                <div class="settings-container" style="max-height: 400px; overflow-y: auto;">
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="use-new-audio" checked> Use Advanced Audio Engine</label>
+                    </div>
+                    
+                    <p style="font-size: 10px; color: #888; margin-top: 10px;">Advanced Engine Settings:</p>
+                    
+                    <div class="settings-row">
+                        <label>Generation Mode:
+                            <select id="audio-mode">
+                                <option value="buffered" selected>Buffered (Pre-rendered)</option>
+                                <option value="realtime">Realtime (Procedural)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label>Processing:
+                            <select id="audio-processing">
+                                <option value="worklet" selected>AudioWorklet (Zero Latency)</option>
+                                <option value="standard">Standard (Main Thread)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="audio-pool" checked> Use Buffer Pool (Anti-Garbage Collect)</label>
+                    </div>
+                    <div class="settings-row">
+                        <label>Latency Hint:
+                            <select id="audio-latency">
+                                <option value="interactive" selected>Interactive (Lowest Lag)</option>
+                                <option value="balanced">Balanced</option>
+                                <option value="playback">Playback (Smooth/High Lag)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label>Noise Gen Mode:
+                            <select id="audio-noise">
+                                <option value="offline" selected>OfflineRender (Fastest)</option>
+                                <option value="realtime">Realtime</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <!-- 🔥 Hardcore Tweaks -->
+                    <p style="font-size: 10px; color: #ff5555; margin-top: 15px; text-transform: uppercase;">🔥 Hardcore Tweaks (Experimental):</p>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="tweak-zero-copy" checked> Zero-Copy Buffer Transfer</label>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="tweak-fast-loop" checked> Fast Worklet Mixing Loop</label>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="tweak-android-hack" checked> Force Android Low-Latency (0.00001)</label>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="tweak-idler-mute" checked> True Zero Idler Gain (Fix Humming)</label>
+                    </div>
+                    <div class="settings-row">
+                        <label><input type="checkbox" id="tweak-dom-pool" checked> Fast DOM Clear (Reduce GC Spikes)</label>
+                    </div>
+
+                    <br><br><br><br><br><br>
+
+                </div>
+                <div class="button-container">
+                    <button id="apply-restart-audio-button">Apply & Restart</button>
+                    <button id="reset-audio-defaults-button">Defaults</button>
+                    <button id="close-audio-menu-button">Back</button>
+                </div>
             </div>
 
             <!-- Help Button (In-Game) -->
@@ -112,7 +190,8 @@
         </div>
     </div>
 
+    <!-- Load Audio Engine FIRST, then Game Logic -->
+    <script src="audio.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
-

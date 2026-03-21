@@ -1,99 +1,94 @@
-
 document.addEventListener('DOMContentLoaded', () => {
+
     // --- AUDIO SYSTEM SETUP ---
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const limiter = audioContext.createDynamicsCompressor();
-    limiter.threshold.setValueAtTime(-10, audioContext.currentTime);
-    limiter.connect(audioContext.destination);
-
-    // Generate White Noise Buffer
-    const bufferSize = audioContext.sampleRate * 2; // 2 seconds buffer
-    const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-    }
-
-    function finalVolume() {
-        return 0.2; // Master volume
-    }
-
-    // --- Sound Effects Logic ---
-    let isTinkNext = true;
-
-    function playFlowerSound() {
-        if (isTinkNext) {
-            playTink();
-        } else {
-            playTonk();
-        }
-        isTinkNext = !isTinkNext; // Toggle for next time
-    }
-
-    function playTink() {
-        const now = audioContext.currentTime;
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1500, now);
-        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
-        gain.gain.setValueAtTime(1.5 * finalVolume(), now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        
-        const noise = audioContext.createBufferSource();
-        noise.buffer = noiseBuffer;
-        const noiseFilter = audioContext.createBiquadFilter();
-        noiseFilter.type = 'highpass';
-        noiseFilter.frequency.value = 2000;
-        const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(0.5 * finalVolume(), now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(limiter);
-
-        osc.connect(gain);
-        gain.connect(limiter);
-        osc.start(now);
-        osc.stop(now + 0.1);
-        noise.start(now);
-        noise.stop(now + 0.05);
-    }
     
-    function playTonk() {
-        const now = audioContext.currentTime;
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(450, now);
-        osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
-        gain.gain.setValueAtTime(2.0 * finalVolume(), now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-        
-        const filter = audioContext.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 600;
-        
-        const noise = audioContext.createBufferSource();
-        noise.buffer = noiseBuffer;
-        const noiseFilter = audioContext.createBiquadFilter();
-        noiseFilter.type = 'bandpass';
-        noiseFilter.frequency.value = 800;
-        const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(1 * finalVolume(), now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(limiter);
-        
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(limiter);
-        osc.start(now);
-        osc.stop(now + 0.2);
-        noise.start(now);
-        noise.stop(now + 0.05);
-    }
+    // 1. New Advanced Engine (Loaded from audio.js)
+    const advancedAudio = new window.SoundEngine();
+
+    // 2. Original Fallback Audio Engine (Preserved from old logic)
+    const OriginalAudio = {
+        ctx: null, limiter: null, noiseBuffer: null, isTinkNext: true,
+        init() {
+            if (this.ctx) return;
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.limiter = this.ctx.createDynamicsCompressor();
+            this.limiter.threshold.setValueAtTime(-10, this.ctx.currentTime);
+            this.limiter.connect(this.ctx.destination);
+
+            const bufferSize = this.ctx.sampleRate * 2;
+            this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = this.noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        },
+        playFlowerSound() {
+            if (!this.ctx) this.init();
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+            this.isTinkNext ? this.playTink() : this.playTonk();
+            this.isTinkNext = !this.isTinkNext;
+        },
+        finalVolume() { return 0.2; },
+        playTink() {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1500, now);
+            osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+            gain.gain.setValueAtTime(1.5 * this.finalVolume(), now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = this.noiseBuffer;
+            const noiseFilter = this.ctx.createBiquadFilter();
+            noiseFilter.type = 'highpass';
+            noiseFilter.frequency.value = 2000;
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.5 * this.finalVolume(), now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            noise.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(this.limiter);
+
+            osc.connect(gain);
+            gain.connect(this.limiter);
+            osc.start(now); osc.stop(now + 0.1);
+            noise.start(now); noise.stop(now + 0.05);
+        },
+        playTonk() {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(450, now);
+            osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+            gain.gain.setValueAtTime(2.0 * this.finalVolume(), now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass'; filter.frequency.value = 600;
+            
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = this.noiseBuffer;
+            const noiseFilter = this.ctx.createBiquadFilter();
+            noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 800;
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(1 * this.finalVolume(), now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            noise.connect(noiseFilter); noiseFilter.connect(noiseGain);
+            noiseGain.connect(this.limiter);
+            
+            osc.connect(filter); filter.connect(gain); gain.connect(this.limiter);
+            osc.start(now); osc.stop(now + 0.2);
+            noise.start(now); noise.stop(now + 0.05);
+        }
+    };
+
+    // User interaction unlocks audio systems
+    document.addEventListener('click', () => {
+        advancedAudio.unlock();
+        OriginalAudio.init();
+    }, { once: true });
+
 
     // --- Element Selectors ---
     const gameArea = document.getElementById('game-area');
@@ -104,14 +99,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const flowersLeftEl = document.getElementById('flowers-left');
     const timerEl = document.getElementById('timer');
     const livesEl = document.getElementById('lives');
+    
     const messageScreen = document.getElementById('message-screen');
     const levelMessageScreen = document.getElementById('level-message-screen');
-    const startButton = document.getElementById('start-button');
     const helpScreen = document.getElementById('help-screen');
+    const audioSettingsScreen = document.getElementById('audio-settings-screen');
+    
+    const startButton = document.getElementById('start-button');
     const helpButton = document.getElementById('help-button');
     const closeHelpButton = document.getElementById('close-help-button');
-    const devIndicator = document.getElementById('dev-mode-indicator');
     const externalHelpButton = document.getElementById('external-help-button');
+    const openAudioMenuBtn = document.getElementById('open-audio-menu-button');
+    const closeAudioMenuBtn = document.getElementById('close-audio-menu-button');
+    const applyRestartAudioBtn = document.getElementById('apply-restart-audio-button');
+    const resetAudioDefaultsBtn = document.getElementById('reset-audio-defaults-button');
+    
+    const devIndicator = document.getElementById('dev-mode-indicator');
     const p1GpStatusEl = document.getElementById('p1-gp-status'); 
     const p2GpStatusEl = document.getElementById('p2-gp-status'); 
     
@@ -121,6 +124,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleFpsCheckbox = document.getElementById('toggle-fps');
     const lockFpsCheckbox = document.getElementById('lock-fps');
     
+    // Audio Setting Selectors
+    const useNewAudioToggle = document.getElementById('use-new-audio');
+    const audioModeSelect = document.getElementById('audio-mode');
+    const audioProcSelect = document.getElementById('audio-processing');
+    const audioPoolToggle = document.getElementById('audio-pool');
+    const audioLatSelect = document.getElementById('audio-latency');
+    const audioNoiseSelect = document.getElementById('audio-noise');
+    
+    // Tweak Selectors
+    const tweakZeroCopy = document.getElementById('tweak-zero-copy');
+    const tweakFastLoop = document.getElementById('tweak-fast-loop');
+    const tweakAndroidHack = document.getElementById('tweak-android-hack');
+    const tweakIdlerMute = document.getElementById('tweak-idler-mute');
+    const tweakDomPool = document.getElementById('tweak-dom-pool');
+
     // --- Mobile Control Selectors ---
     const mobileControls = document.getElementById('mobile-controls');
     const mobileLeftBtn = document.getElementById('mobile-left');
@@ -162,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
-    let state = {};
+    let state = { useNewAudio: true, fastDomClear: true }; // Tweak enabled by default
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
     
     let lastFrameTime = 0;
@@ -223,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Initialization ---
     function resetGame() {
-        state = { level: 1, totalScore: 0, lives: 3, gameLoopId: null, gameOver: false, isTwoPlayer: false, devMode: false };
+        state = { ...state, level: 1, totalScore: 0, lives: 3, gameLoopId: null, gameOver: false, isTwoPlayer: false, devMode: false };
         playerGamepadAssignments = { p1: null, p2: null }; 
     }
 
@@ -236,10 +254,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startGame() {
-        // Resume Audio Context on user interaction
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
+        advancedAudio.unlock();
+        OriginalAudio.init();
 
         resetGame();
         messageScreen.classList.add('hidden');
@@ -658,6 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (p.y + p.height > worldHeight) handleDeath();
         });
     }
+    
     function updateCamera() {
         const gameRectHeight = 720;
         const worldHeight = world.offsetHeight;
@@ -673,6 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.cameraY = targetCameraY;
         gameArea.scrollTop = state.cameraY;
     }
+    
     function handleCollisions() {
         state.players.forEach(p => {
             if (!p) return;
@@ -688,8 +706,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function collectFlower(flower, index, player) {
-        // Play Sound
-        playFlowerSound();
+        // Toggle routing to selected sound engine
+        if (state.useNewAudio) {
+            advancedAudio.playFlowerSound();
+        } else {
+            OriginalAudio.playFlowerSound();
+        }
 
         flower.el.remove();
         if (flower.hitboxEl) flower.hitboxEl.remove();
@@ -700,6 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateHUD();
         if (state.flowersToCollect <= 0) { nextLevel(); }
     }
+    
     function nextLevel() {
         state.levelInProgress = false; 
         state.totalScore += Math.max(0, state.timeLeft * 10);
@@ -788,6 +811,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
     function showLevelMessage(text, duration, callback) {
         levelMessageScreen.textContent = text; levelMessageScreen.classList.remove('hidden');
         setTimeout(() => { levelMessageScreen.classList.add('hidden'); if (callback) callback(); }, duration / gameSpeed);
@@ -800,6 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
         world.appendChild(el);
         return el;
     }
+    
     function createHitbox(x, y, width, height) {
         const hitboxEl = document.createElement('div');
         hitboxEl.className = 'hitbox';
@@ -810,10 +835,21 @@ document.addEventListener('DOMContentLoaded', () => {
         world.appendChild(hitboxEl);
         return hitboxEl;
     }
+    
     function isColliding(rect1, rect2) {
         return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
     }
-    function clearDynamicElements() { world.innerHTML = ''; }
+    
+    function clearDynamicElements() { 
+        if (state.fastDomClear) {
+            // 🔥 TWEAK: Prevents massive reflow & GC spike
+            while (world.firstChild) {
+                world.removeChild(world.firstChild);
+            }
+        } else {
+            world.innerHTML = ''; // Original method
+        }
+    }
 
     function toggleDevMode() {
         state.devMode = !state.devMode;
@@ -845,7 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (key === 'h') {
-            if (messageScreen.classList.contains('hidden')) {
+            if (messageScreen.classList.contains('hidden') && audioSettingsScreen.classList.contains('hidden')) {
                helpScreen.classList.toggle('hidden');
             }
         }
@@ -857,6 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    
     window.addEventListener('keyup', e => { if (e.key in keys) { e.preventDefault(); keys[e.key] = false; } });
     
     window.addEventListener("gamepadconnected", e => {
@@ -876,10 +913,73 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Menus
     startButton.addEventListener('click', startGame);
     helpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
     closeHelpButton.addEventListener('click', () => helpScreen.classList.add('hidden'));
     externalHelpButton.addEventListener('click', () => helpScreen.classList.remove('hidden'));
+    
+    // Audio Settings Menu Wiring
+    openAudioMenuBtn.addEventListener('click', () => {
+        helpScreen.classList.add('hidden');
+        audioSettingsScreen.classList.remove('hidden');
+    });
+    
+    closeAudioMenuBtn.addEventListener('click', () => {
+        audioSettingsScreen.classList.add('hidden');
+        helpScreen.classList.remove('hidden');
+    });
+
+    applyRestartAudioBtn.addEventListener('click', () => {
+        audioSettingsScreen.classList.add('hidden');
+        startGame(); // Starts a new game (settings are already applied dynamically via 'change' events)
+    });
+
+    resetAudioDefaultsBtn.addEventListener('click', () => {
+        // Reset UI to Defaults
+        useNewAudioToggle.checked = true;
+        audioModeSelect.value = 'buffered';
+        audioProcSelect.value = 'worklet';
+        audioPoolToggle.checked = true;
+        audioLatSelect.value = 'interactive';
+        audioNoiseSelect.value = 'offline';
+        tweakZeroCopy.checked = true;
+        tweakFastLoop.checked = true;
+        tweakAndroidHack.checked = true;
+        tweakIdlerMute.checked = true;
+        tweakDomPool.checked = true;
+
+        // Dispatch change events to trigger attached logic (updates internal state)
+        [useNewAudioToggle, audioModeSelect, audioProcSelect, audioPoolToggle, 
+         audioLatSelect, audioNoiseSelect, tweakZeroCopy, tweakFastLoop, 
+         tweakAndroidHack, tweakIdlerMute, tweakDomPool].forEach(el => el.dispatchEvent(new Event('change')));
+    });
+
+    useNewAudioToggle.addEventListener('change', (e) => state.useNewAudio = e.target.checked);
+    audioModeSelect.addEventListener('change', (e) => advancedAudio.setMode(e.target.value));
+    audioProcSelect.addEventListener('change', (e) => advancedAudio.setAdvancedOptions({ processingMode: e.target.value }));
+    audioPoolToggle.addEventListener('change', (e) => advancedAudio.setAdvancedOptions({ useBufferPool: e.target.checked }));
+    audioLatSelect.addEventListener('change', (e) => advancedAudio.setLatencyHint(e.target.value));
+    audioNoiseSelect.addEventListener('change', (e) => advancedAudio.setAdvancedOptions({ noiseGenMode: e.target.value }));
+
+    // Tweak Listeners
+    tweakZeroCopy.addEventListener('change', (e) => advancedAudio.tweaks.zeroCopy = e.target.checked);
+    tweakFastLoop.addEventListener('change', (e) => {
+        advancedAudio.tweaks.fastLoop = e.target.checked;
+        if (advancedAudio.workletNode) {
+            advancedAudio.workletNode.port.postMessage({ type: 'tweak', fastLoop: e.target.checked });
+        }
+    });
+    tweakAndroidHack.addEventListener('change', (e) => {
+        advancedAudio.tweaks.androidHack = e.target.checked;
+        // Requires "Apply & Restart" to reboot engine with 0.00001 latency hint
+    });
+    tweakIdlerMute.addEventListener('change', (e) => {
+        advancedAudio.tweaks.idlerMute = e.target.checked;
+        // Requires "Apply & Restart" to re-instantiate the idler node
+    });
+    tweakDomPool.addEventListener('change', (e) => state.fastDomClear = e.target.checked);
+
     mobileToggleBtn.addEventListener('click', goFull);
 
     speedSelect.addEventListener('change', (e) => {
@@ -931,4 +1031,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupMobileControls();
 });
-

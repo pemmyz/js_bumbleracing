@@ -117,7 +117,7 @@ body.mobile-mode {
 .hidden { display: none !important; }
 
 /* --- MENUS --- */
-#message-screen, #level-message-screen, #help-screen {
+#message-screen, #level-message-screen, #help-screen, #audio-settings-screen {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.85);
@@ -133,9 +133,9 @@ body.mobile-mode {
 #message-screen h1 { color: #FFD700; margin-bottom: 20px; font-size: 40px; }
 .instructions { font-size: 16px; line-height: 1.5; margin: 10px; }
 #level-message-screen { font-size: 40px; color: #FFD700; text-shadow: 4px 4px 0 #000; pointer-events: none; }
-#help-screen { align-items: flex-start; padding: 50px; box-sizing: border-box; }
-#help-screen h2 { color: #FFD700; margin-bottom: 20px;}
-#help-screen p { font-size: 14px; line-height: 2; text-align: left;}
+#help-screen, #audio-settings-screen { align-items: flex-start; padding: 50px; box-sizing: border-box; }
+#help-screen h2, #audio-settings-screen h2 { color: #FFD700; margin-bottom: 20px;}
+#help-screen p, #audio-settings-screen p { font-size: 14px; line-height: 2; text-align: left;}
 
 .settings-container {
     margin: 20px 0;
@@ -145,6 +145,7 @@ body.mobile-mode {
     text-align: left;
     color: #FFD700;
     font-size: 14px;
+    width: 100%;
 }
 
 .settings-row {
@@ -167,13 +168,22 @@ body.mobile-mode {
     cursor: pointer;
 }
 
-#speed-select {
+select {
     font-family: var(--retro-font);
     background: #333;
     color: white;
     border: 2px solid white;
     padding: 8px;
     cursor: pointer;
+    max-width: 250px;
+}
+
+.button-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+    width: 100%;
 }
 
 button {
@@ -188,7 +198,7 @@ button {
     margin: 10px;
 }
 button:active { transform: translateY(4px); box-shadow: 0 0 0 #333; }
-#help-button, #external-help-button { background: #008CBA; }
+#help-button, #external-help-button, #open-audio-menu-button { background: #008CBA; }
 
 #controls-bar {
     position: absolute;

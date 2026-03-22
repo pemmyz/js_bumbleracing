@@ -124,6 +124,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleFpsCheckbox = document.getElementById('toggle-fps');
     const lockFpsCheckbox = document.getElementById('lock-fps');
     
+    // Hitbox Setting Selectors
+    const hitboxStyleSelect = document.getElementById('hitbox-style-select');
+    const toggleHitboxesCheckbox = document.getElementById('toggle-hitboxes');
+
     // Audio Setting Selectors
     const useNewAudioToggle = document.getElementById('use-new-audio');
     const audioModeSelect = document.getElementById('audio-mode');
@@ -180,7 +184,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
-    let state = { useNewAudio: true, fastDomClear: true }; // Tweak enabled by default
+    let state = { 
+        useNewAudio: true, 
+        fastDomClear: true,
+        hitboxStyle: hitboxStyleSelect ? hitboxStyleSelect.value : 'current',
+        showHitboxes: toggleHitboxesCheckbox ? toggleHitboxesCheckbox.checked : false,
+        devMode: false
+    }; 
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
     
     let lastFrameTime = 0;
@@ -241,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Initialization ---
     function resetGame() {
-        state = { ...state, level: 1, totalScore: 0, lives: 3, gameLoopId: null, gameOver: false, isTwoPlayer: false, devMode: false };
+        state = { ...state, level: 1, totalScore: 0, lives: 3, gameLoopId: null, gameOver: false, isTwoPlayer: false };
         playerGamepadAssignments = { p1: null, p2: null }; 
     }
 
@@ -287,6 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const startPlatform = { x: worldWidth / 2 - 80, y: startY + 100, width: 200, height: 20, };
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
+        attachHitbox(startPlatform, 'platform');
         state.platforms.push(startPlatform);
         
         updateCamera();
@@ -318,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             controls: playerControls[playerIndex]
         };
         player.el = createGameObject(`player player-${player.id}-glow`, '🐝', player.x, player.y);
-        player.hitboxEl = createHitbox(player.x, player.y, player.width, player.height);
+        attachHitbox(player, 'player');
         state.players[playerIndex] = player;
     }
 
@@ -358,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isValidPosition) {
                     const platform = { ...newRect };
                     platform.el = createGameObject('platform', '🌿', platform.x, platform.y);
-                    platform.hitboxEl = createHitbox(platform.x, platform.y, platform.width, platform.height);
+                    attachHitbox(platform, 'platform');
                     state.platforms.push(platform);
                     platformsForFlowers.push(platform);
                     allGeneratedObjects.push(platform);
@@ -381,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const flower = { x: flowerX, y: flowerY, width: fWidth, height: fHeight };
             flower.el = createGameObject('flower', '🌼', flowerX, flowerY);
-            flower.hitboxEl = createHitbox(flower.x, flower.y, flower.width, flower.height);
+            attachHitbox(flower, 'flower');
             state.flowers.push(flower);
             allGeneratedObjects.push(flower);
             platformsForFlowers.splice(platformIndex, 1);
@@ -423,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     for (const pos of thornPositions) {
                         const thorn = { x: pos.x, y: pos.y, width: tWidth, height: tHeight };
                         thorn.el = createGameObject('thorn', '🌵', thorn.x, thorn.y);
-                        thorn.hitboxEl = createHitbox(thorn.x, thorn.y, thorn.width, thorn.height);
+                        attachHitbox(thorn, 'thorn');
                         state.thorns.push(thorn);
                         allGeneratedObjects.push(thorn);
                     }
@@ -806,8 +817,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state.players.forEach(player => {
             if (!player || !player.el) return;
             player.el.style.transform = `translate(${player.x}px, ${player.y}px) scaleX(${player.lastDirection})`;
-            if (player.hitboxEl) {
-                player.hitboxEl.style.transform = `translate(${player.x}px, ${player.y}px)`;
+            if (player.hitboxEl && player.hitbox) {
+                player.hitboxEl.style.transform = `translate(${player.x + player.hitbox.offsetX}px, ${player.y + player.hitbox.offsetY}px)`;
             }
         });
     }
@@ -828,16 +839,57 @@ document.addEventListener('DOMContentLoaded', () => {
     function createHitbox(x, y, width, height) {
         const hitboxEl = document.createElement('div');
         hitboxEl.className = 'hitbox';
-        if (!state.devMode) hitboxEl.classList.add('hidden');
+        if (!state.showHitboxes && !state.devMode) hitboxEl.classList.add('hidden');
         hitboxEl.style.width = `${width}px`;
         hitboxEl.style.height = `${height}px`;
         hitboxEl.style.transform = `translate(${x}px, ${y}px)`;
         world.appendChild(hitboxEl);
         return hitboxEl;
     }
+
+    function attachHitbox(obj, type) {
+        let hb = { offsetX: 0, offsetY: 0, width: obj.width, height: obj.height };
+        
+        if (state.hitboxStyle === 'new') {
+            if (type === 'player') hb = { offsetX: 8, offsetY: 10, width: obj.width - 16, height: obj.height - 12 };
+            // Cactus is tighter, especially from the top
+            else if (type === 'thorn') hb = { offsetX: 12, offsetY: 18, width: obj.width - 24, height: obj.height - 18 };
+            else if (type === 'flower') hb = { offsetX: 6, offsetY: 6, width: obj.width - 12, height: obj.height - 12 };
+            // Platform stays standard size
+        }
+        
+        obj.hitbox = hb;
+        obj.type = type; // Save type to easily refresh later
+        
+        if (obj.hitboxEl) {
+            // Update existing element directly
+            obj.hitboxEl.style.width = `${hb.width}px`;
+            obj.hitboxEl.style.height = `${hb.height}px`;
+            obj.hitboxEl.style.transform = `translate(${obj.x + hb.offsetX}px, ${obj.y + hb.offsetY}px)`;
+        } else {
+            // Create for the first time
+            obj.hitboxEl = createHitbox(obj.x + hb.offsetX, obj.y + hb.offsetY, hb.width, hb.height);
+        }
+    }
+
+    function refreshAllHitboxes() {
+        if (state.players) state.players.forEach(p => { if (p) attachHitbox(p, 'player'); });
+        if (state.platforms) state.platforms.forEach(p => attachHitbox(p, 'platform'));
+        if (state.thorns) state.thorns.forEach(t => attachHitbox(t, 'thorn'));
+        if (state.flowers) state.flowers.forEach(f => attachHitbox(f, 'flower'));
+    }
+
+    function getAbsRect(obj) {
+        if (obj.hitbox) {
+            return { x: obj.x + obj.hitbox.offsetX, y: obj.y + obj.hitbox.offsetY, width: obj.hitbox.width, height: obj.hitbox.height };
+        }
+        return { x: obj.x, y: obj.y, width: obj.width, height: obj.height };
+    }
     
-    function isColliding(rect1, rect2) {
-        return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
+    function isColliding(obj1, obj2) {
+        const r1 = getAbsRect(obj1);
+        const r2 = getAbsRect(obj2);
+        return ( r1.x < r2.x + r2.width && r1.x + r1.width > r2.x && r1.y < r2.y + r2.height && r1.y + r1.height > r2.y );
     }
     
     function clearDynamicElements() { 
@@ -851,12 +903,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateHitboxVisibility() {
+        document.querySelectorAll('.hitbox').forEach(box => {
+            if (state.devMode || state.showHitboxes) {
+                box.classList.remove('hidden');
+            } else {
+                box.classList.add('hidden');
+            }
+        });
+    }
+
     function toggleDevMode() {
         state.devMode = !state.devMode;
         devIndicator.classList.toggle('hidden', !state.devMode);
-        document.querySelectorAll('.hitbox').forEach(box => {
-            box.classList.toggle('hidden', !state.devMode);
-        });
+        updateHitboxVisibility();
+        
         console.log(`Dev mode ${state.devMode ? 'enabled' : 'disabled'}.`);
         if (state.devMode) {
             console.log('Commands: [N] Next Level');
@@ -865,8 +926,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('keydown', e => { 
         const key = e.key.toLowerCase();
+        
         if (key === 'j' && !e.repeat) {
             toggleDevMode();
+        }
+
+        if (key === 'v' && !e.repeat) {
+            state.showHitboxes = !state.showHitboxes;
+            if (toggleHitboxesCheckbox) toggleHitboxesCheckbox.checked = state.showHitboxes;
+            updateHitboxVisibility();
+            console.log(`Hitboxes ${state.showHitboxes ? 'shown' : 'hidden'}.`);
         }
 
         if (e.key in keys) { e.preventDefault(); keys[e.key] = true; }
@@ -999,6 +1068,16 @@ document.addEventListener('DOMContentLoaded', () => {
     lockFpsCheckbox.addEventListener('change', (e) => {
         lockFps = e.target.checked;
         lastRenderTime = performance.now(); 
+    });
+
+    hitboxStyleSelect.addEventListener('change', (e) => {
+        state.hitboxStyle = e.target.value;
+        refreshAllHitboxes(); // Apply dynamically to current game
+    });
+
+    toggleHitboxesCheckbox.addEventListener('change', (e) => {
+        state.showHitboxes = e.target.checked;
+        updateHitboxVisibility();
     });
 
     function setupMobileControls() {

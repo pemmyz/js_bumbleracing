@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const startPlatform = { x: worldWidth / 2 - 80, y: startY + 100, width: 200, height: 20, };
         startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
-        attachHitbox(startPlatform, 'platform');
+        attachHitbox(startPlatform, 'start-platform');
         state.platforms.push(startPlatform);
         
         updateCamera();
@@ -850,12 +850,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachHitbox(obj, type) {
         let hb = { offsetX: 0, offsetY: 0, width: obj.width, height: obj.height };
         
+        if (type === 'platform') {
+            hb.width = obj.width * 0.75; 
+        }
+
         if (state.hitboxStyle === 'new') {
             if (type === 'player') hb = { offsetX: 8, offsetY: 10, width: obj.width - 16, height: obj.height - 12 };
             // Cactus is tighter, especially from the top
             else if (type === 'thorn') hb = { offsetX: 12, offsetY: 18, width: obj.width - 24, height: obj.height - 18 };
             else if (type === 'flower') hb = { offsetX: 6, offsetY: 6, width: obj.width - 12, height: obj.height - 12 };
-            // Platform stays standard size
+            // Platform stays standard size (apart from the 0.75 adjustment above)
         }
         
         obj.hitbox = hb;
@@ -874,7 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function refreshAllHitboxes() {
         if (state.players) state.players.forEach(p => { if (p) attachHitbox(p, 'player'); });
-        if (state.platforms) state.platforms.forEach(p => attachHitbox(p, 'platform'));
+        if (state.platforms) state.platforms.forEach(p => attachHitbox(p, p.type || 'platform'));
         if (state.thorns) state.thorns.forEach(t => attachHitbox(t, 'thorn'));
         if (state.flowers) state.flowers.forEach(f => attachHitbox(f, 'flower'));
     }

@@ -295,10 +295,21 @@ document.addEventListener('DOMContentLoaded', () => {
             addPlayer(1, startY, oldScores[1] || 0);
         }
 
-        const startPlatform = { x: worldWidth / 2 - 80, y: startY + 100, width: 200, height: 20, };
-        startPlatform.el = createGameObject('platform', '🌿', startPlatform.x, startPlatform.y);
+
+
+
+
+const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, height: 20, };
+        startPlatform.el = createGameObject('platform', '🌿🌿🌿🌿', startPlatform.x, startPlatform.y);
         attachHitbox(startPlatform, 'start-platform');
         state.platforms.push(startPlatform);
+
+
+
+
+
+
+
         
         updateCamera();
         updateHUD();

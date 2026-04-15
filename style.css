@@ -98,7 +98,7 @@ body.mobile-mode {
 #dev-mode-indicator { color: red; position: absolute; top: 40px; left: 50%; transform: translateX(-50%); }
 
 /* --- GAME OBJECTS --- */
-.game-object { position: absolute; font-size: 40px; will-change: transform; }
+.game-object { position: absolute; font-size: 40px; will-change: transform; white-space: nowrap; }
 .player { z-index: 10; font-size: 40px; }
 
 .player-1-glow { filter: drop-shadow(0 0 10px gold) drop-shadow(0 0 10px gold) drop-shadow(0 0 10px gold); }

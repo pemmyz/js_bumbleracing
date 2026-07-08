@@ -128,6 +128,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const hitboxStyleSelect = document.getElementById('hitbox-style-select');
     const toggleHitboxesCheckbox = document.getElementById('toggle-hitboxes');
 
+    // Emoji Setting Selector
+    const emojiThemeSelect = document.getElementById('emoji-theme-select');
+
     // Audio Setting Selectors
     const useNewAudioToggle = document.getElementById('use-new-audio');
     const audioModeSelect = document.getElementById('audio-mode');
@@ -181,6 +184,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener("webkitfullscreenchange", scaleGame);
     scaleGame();
 
+    // --- Emoji Configuration Sets ---
+    const emojiThemes = {
+        classic: { player: '🐝', flower: '🌼', thorn: '🌵', platform: '🌿', startPlatform: '🌿🌿🌿🌿' },
+        retro: { player: '👾', flower: '🍒', thorn: '💣', platform: '🧱', startPlatform: '🧱🧱🧱🧱' },
+        ocean: { player: '🐠', flower: '🐚', thorn: '🐡', platform: '🪸', startPlatform: '🪸🪸🪸🪸' },
+        forest: { player: '🐦', flower: '🌰', thorn: '🍄', platform: '🪵', startPlatform: '🪵🪵🪵🪵' }
+    };
 
     // --- Game Constants & State ---
     const gameConstants = { GRAVITY: 0.35, THRUST: 0.6, PLAYER_SPEED: 4.5, BOUNCE_VELOCITY: -5, MAX_FALL_SPEED: 8, LEVEL_TIME: 180, };
@@ -189,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fastDomClear: true,
         hitboxStyle: hitboxStyleSelect ? hitboxStyleSelect.value : 'current',
         showHitboxes: toggleHitboxesCheckbox ? toggleHitboxesCheckbox.checked : false,
+        emojiTheme: emojiThemeSelect ? emojiThemeSelect.value : 'classic',
         devMode: false
     }; 
     const keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, d: false, ' ': false };
@@ -295,21 +306,10 @@ document.addEventListener('DOMContentLoaded', () => {
             addPlayer(1, startY, oldScores[1] || 0);
         }
 
-
-
-
-
-const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, height: 20, };
-        startPlatform.el = createGameObject('platform', '🌿🌿🌿🌿', startPlatform.x, startPlatform.y);
+        const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, height: 20, };
+        startPlatform.el = createGameObject('platform', emojiThemes[state.emojiTheme].startPlatform, startPlatform.x, startPlatform.y);
         attachHitbox(startPlatform, 'start-platform');
         state.platforms.push(startPlatform);
-
-
-
-
-
-
-
         
         updateCamera();
         updateHUD();
@@ -339,7 +339,7 @@ const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, he
             score: score,
             controls: playerControls[playerIndex]
         };
-        player.el = createGameObject(`player player-${player.id}-glow`, '🐝', player.x, player.y);
+        player.el = createGameObject(`player player-${player.id}-glow`, emojiThemes[state.emojiTheme].player, player.x, player.y);
         attachHitbox(player, 'player');
         state.players[playerIndex] = player;
     }
@@ -379,7 +379,7 @@ const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, he
                 }
                 if (isValidPosition) {
                     const platform = { ...newRect };
-                    platform.el = createGameObject('platform', '🌿', platform.x, platform.y);
+                    platform.el = createGameObject('platform', emojiThemes[state.emojiTheme].platform, platform.x, platform.y);
                     attachHitbox(platform, 'platform');
                     state.platforms.push(platform);
                     platformsForFlowers.push(platform);
@@ -402,7 +402,7 @@ const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, he
                 continue;
             }
             const flower = { x: flowerX, y: flowerY, width: fWidth, height: fHeight };
-            flower.el = createGameObject('flower', '🌼', flowerX, flowerY);
+            flower.el = createGameObject('flower', emojiThemes[state.emojiTheme].flower, flowerX, flowerY);
             attachHitbox(flower, 'flower');
             state.flowers.push(flower);
             allGeneratedObjects.push(flower);
@@ -444,7 +444,7 @@ const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, he
                 if (isClusterValid) {
                     for (const pos of thornPositions) {
                         const thorn = { x: pos.x, y: pos.y, width: tWidth, height: tHeight };
-                        thorn.el = createGameObject('thorn', '🌵', thorn.x, thorn.y);
+                        thorn.el = createGameObject('thorn', emojiThemes[state.emojiTheme].thorn, thorn.x, thorn.y);
                         attachHitbox(thorn, 'thorn');
                         state.thorns.push(thorn);
                         allGeneratedObjects.push(thorn);
@@ -802,13 +802,14 @@ const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, he
     }
 
     function updateHUD() {
+        const currentTheme = emojiThemes[state.emojiTheme];
         p1ScoreEl.textContent = `P1: ${state.players[0]?.score || 0}`;
         if (state.isTwoPlayer) {
             p2ScoreEl.textContent = `P2: ${state.players[1]?.score || 0}`;
         }
         levelEl.textContent = `LEVEL: ${state.level}`;
-        flowersLeftEl.textContent = `🌼: ${state.flowersToCollect}`;
-        livesEl.textContent = `LIVES: ${'🐝'.repeat(Math.max(0, state.lives))}`;
+        flowersLeftEl.textContent = `${currentTheme.flower}: ${state.flowersToCollect}`;
+        livesEl.textContent = `LIVES: ${currentTheme.player.repeat(Math.max(0, state.lives))}`;
         const minutes = Math.floor(state.timeLeft / 60); const seconds = state.timeLeft % 60;
         timerEl.textContent = `⏱️ ${minutes}:${String(seconds).padStart(2, '0')}`;
     }
@@ -936,6 +937,39 @@ const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, he
         console.log(`Dev mode ${state.devMode ? 'enabled' : 'disabled'}.`);
         if (state.devMode) {
             console.log('Commands: [N] Next Level');
+        }
+    }
+
+    // Refresh active emojis and update current screens instantly
+    function refreshActiveEmojis() {
+        const theme = emojiThemes[state.emojiTheme];
+        
+        if (state.players) {
+            state.players.forEach(p => { if (p && p.el) p.el.textContent = theme.player; });
+        }
+        if (state.platforms) {
+            state.platforms.forEach(p => {
+                if (p && p.el) {
+                    p.el.textContent = (p.width > 100) ? theme.startPlatform : theme.platform;
+                }
+            });
+        }
+        if (state.thorns) {
+            state.thorns.forEach(t => { if (t && t.el) t.el.textContent = theme.thorn; });
+        }
+        if (state.flowers) {
+            state.flowers.forEach(f => { if (f && f.el) f.el.textContent = theme.flower; });
+        }
+
+        updateHUD();
+        updateStartScreenInstructions();
+    }
+
+    function updateStartScreenInstructions() {
+        const theme = emojiThemes[state.emojiTheme];
+        const instructions = messageScreen.querySelectorAll('.instructions');
+        if (instructions && instructions.length >= 3) {
+            instructions[2].textContent = `Collect ${theme.flower} | Avoid ${theme.thorn}`;
         }
     }
 
@@ -1093,6 +1127,12 @@ const startPlatform = { x: worldWidth / 2 - 100, y: startY + 100, width: 200, he
     toggleHitboxesCheckbox.addEventListener('change', (e) => {
         state.showHitboxes = e.target.checked;
         updateHitboxVisibility();
+    });
+
+    // Theme selector listener
+    emojiThemeSelect.addEventListener('change', (e) => {
+        state.emojiTheme = e.target.value;
+        refreshActiveEmojis();
     });
 
     function setupMobileControls() {

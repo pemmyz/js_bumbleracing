@@ -209,9 +209,47 @@ button {
 button:active { transform: translateY(4px); box-shadow: 0 0 0 #333; }
 #help-button, #external-help-button, #open-audio-menu-button { background: #008CBA; }
 
+/* --- PERSISTENT BOTTOM-LEFT CREATOR LINK --- */
+#creator-link,
+.creator-bottom-link {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    z-index: 1000; /* Above scanlines (900) & menus (850) to remain always visible */
+    font-family: var(--retro-font);
+    font-size: 10px;
+    line-height: 1.4;
+    color: #FFD700;
+    text-decoration: none;
+    text-shadow: 1px 1px 0 #000;
+    background: rgba(0, 0, 0, 0.75);
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 215, 0, 0.5);
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    pointer-events: auto;
+}
+
+#creator-link:hover,
+.creator-bottom-link:hover {
+    color: #FFF;
+    background: rgba(255, 215, 0, 0.25);
+    border-color: #FFD700;
+    transform: translateY(-1px);
+}
+
+#creator-link:active,
+.creator-bottom-link:active {
+    transform: translateY(1px);
+}
+
 #controls-bar {
     position: absolute;
-    bottom: 10px; left: 10px;
+    bottom: 48px;
+    left: 10px;
     z-index: 800;
 }
 
